@@ -9,6 +9,6 @@
 
 ## Reporting a Vulnerability
 
-We take security seriously and encourage you to report any vulnerabilities you find. Please open an issue on [Github](https://github.com/saigkill/MagazineFetcher/issues).
+We take security seriously and encourage you to report any vulnerabilities you find. Please open an issue on [Github](https://github.com/saigkill/ServiceMonitor/issues).
 Alternatively, you can send an email to [project maintainers](mailto:himself@saschamanns.de) with details of the vulnerability.
 We will review the report and respond as soon as possible.

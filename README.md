@@ -4,17 +4,17 @@ ServiceMonitor is a lightweight, configuration‑driven monitoring tool designed
 It periodically checks a list of URLs and sends SMTP notifications when services become unreachable or return error states. 
 The focus is on robustness, simplicity, and clean extensibility.
 
-| W                           | W                                                                                                                                                                                                                                   |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Code                        | https://dev.azure.com/saigkill/ServiceMonitor                                                                                                                                                                                       |
-| Continuous Integration Prod | [![Build Status](https://dev.azure.com/saigkill/MagazineFetcher/_apis/build/status%2FMagazineFetcher-Productive?branchName=master)](https://dev.azure.com/saigkill/MagazineFetcher/_build/latest?definitionId=83&branchName=master) |
-| Continuous Integration Dev  | [![Build Status](https://dev.azure.com/saigkill/MagazineFetcher/_apis/build/status%2FMagazineFetcher-Stage?branchName=develop)](https://dev.azure.com/saigkill/MagazineFetcher/_build/latest?definitionId=82&branchName=develop)    |
-| Code Coverage               | [![Coverage](https://img.shields.io/azure-devops/coverage/saigkill/MagazineFetcher/82)](https://dev.azure.com/saigkill/MagazineFetcher/_build/latest?definitionId=82)                                                               |
-| Bugreports                  | [![GitHub issues](https://img.shields.io/github/issues/saigkill/MagazineFetcher)](https://github.com/saigkill/MagazineFetcher/issues)                                                                                               |
-| Downloads all               | ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/saigkill/MagazineFetcher/total)                                                                                                              |
-| Blog                        | [![Blog](https://img.shields.io/badge/Blog-Saigkill-blue)](https://saschamanns.de)                                                                                                                                                  |
+| W                           | W                                                                                                                                                                                                                                |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Code                        | https://dev.azure.com/saigkill/ServiceMonitor                                                                                                                                                                                    |
+| Continuous Integration Prod | [![Build Status](https://dev.azure.com/saigkill/ServiceMonitor/_apis/build/status%2FServiceMonitor-Productive?branchName=master)](https://dev.azure.com/saigkill/ServiceMonitor/_build/latest?definitionId=83&branchName=master) |
+| Continuous Integration Dev  | [![Build Status](https://dev.azure.com/saigkill/ServiceMonitor/_apis/build/status%2FServiceMonitor-Stage?branchName=develop)](https://dev.azure.com/saigkill/ServiceMonitor/_build/latest?definitionId=82&branchName=develop)    |
+| Code Coverage               | [![Coverage](https://img.shields.io/azure-devops/coverage/saigkill/ServiceMonitor/82)](https://dev.azure.com/saigkill/ServiceMonitor/_build/latest?definitionId=82)                                                              |
+| Bugreports                  | [![GitHub issues](https://img.shields.io/github/issues/saigkill/ServiceMonitor)](https://github.com/saigkill/ServiceMonitor/issues)                                                                                              |
+| Downloads all               | ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/saigkill/ServiceMonitor/total)                                                                                                            |
+| Blog                        | [![Blog](https://img.shields.io/badge/Blog-Saigkill-blue)](https://saschamanns.de)                                                                                                                                               |
 
-File a bug report [on Github](https://github.com/saigkill/MagazineFetcher/issues).
+File a bug report [on Github](https://github.com/saigkill/ServiceMonitor/issues).
 
 ## Features
 

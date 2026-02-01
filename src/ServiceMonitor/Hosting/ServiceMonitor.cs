@@ -1,12 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Mail;
-using System.Text;
-using System.Threading.Tasks;
-using MagazineFetcher;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ServiceMonitor.AppConfig;
@@ -28,7 +21,7 @@ namespace ServiceMonitor.Hosting
 		{
 			var urls = _options.Value.Urls;
 			var smtpConfig = _options.Value.Smtp;
-			var timeout = _options.Value.TimeoutSeconds;		
+			var timeout = _options.Value.TimeoutSeconds;
 
 			var http = new HttpClient
 			{
@@ -77,7 +70,8 @@ namespace ServiceMonitor.Hosting
 				{
 					await smtp.SendMailAsync(mail);
 				}
-				catch {
+				catch
+				{
 					_logger.LogError("Failed to send alert email for service {Url}", url);
 				}
 			}
