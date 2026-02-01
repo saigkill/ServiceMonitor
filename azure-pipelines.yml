@@ -1,0 +1,176 @@
+trigger:
+  branches:
+    include:
+      - develop
+      - master
+  tags:
+    include:
+      - v*
+
+pool:
+  vmImage: 'ubuntu-latest'  
+
+variables:
+  BuildConfiguration: 'Release'
+
+stages:
+
+# ---------------------------------------------------------
+#  STAGE: BUILD (Linux + Windows parallel)
+# ---------------------------------------------------------
+- stage: Build
+  displayName: "Build Linux + Windows"
+  jobs:
+  - job: MatrixBuild
+    displayName: "Matrix Build"
+    strategy:
+      matrix:
+        linux:
+          vmImage: 'ubuntu-latest'
+          RID: 'linux-x64'
+          ArtifactName: '$(AppName)-Linux-$(PackageVersion).zip'
+        windows:
+          vmImage: 'windows-latest'
+          RID: 'win-x64'
+          ArtifactName: '$(AppName)-Windows-$(PackageVersion).zip'
+
+    pool:
+      vmImage: $(vmImage)
+
+    steps:
+
+    # DotNet SDK
+    - task: UseDotNet@2
+      inputs:
+        packageType: 'sdk'
+        version: '9.x'
+
+    # CodeQL nur in develop
+    - task: AdvancedSecurity-Codeql-Init@1
+      condition: eq(variables['Build.SourceBranch'], 'refs/heads/develop')
+      inputs:
+        languages: 'csharp'
+        querysuite: 'security-and-quality'
+      displayName: 'Initialize CodeQL'
+
+    # Publish
+    - task: DotNetCoreCLI@2
+      inputs:
+        command: 'publish'
+        publishWebProjects: false
+        projects: '**/*.csproj'
+        arguments: '--configuration $(BuildConfiguration) -r $(RID) --self-contained true --output $(Build.ArtifactStagingDirectory)/$(AppName)'
+      displayName: 'Publish Console App'
+
+    # Tests
+    - task: DotNetCoreCLI@2
+      inputs:
+        command: 'test'
+        projects: '**/*[Tt]est*/*.csproj'
+        arguments: '--collect:"XPlat Code Coverage" --logger:junit /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura'
+        testRunTitle: 'dotnet test'
+      displayName: 'Run Unit Tests'
+
+    # CodeQL Analyse nur in develop
+    - task: AdvancedSecurity-Codeql-Analyze@1
+      condition: eq(variables['Build.SourceBranch'], 'refs/heads/develop')
+      displayName: 'Perform CodeQL analysis'
+
+    # Test Results
+    - task: PublishTestResults@2
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: '**/TestResults/TestResults.xml'
+        testRunTitle: 'Run Testresults'
+      displayName: 'Publish Test Results'
+
+    # Coverage
+    - task: PublishCodeCoverageResults@2
+      inputs:
+        summaryFileLocation: '$(Build.SourcesDirectory)/**/coverage.cobertura.xml'
+        pathToSources: '$(System.DefaultWorkingDirectory)/**/coverage'
+      displayName: 'Publish Code Coverage Results'
+
+    # Coverage Report
+    - task: reportgenerator@5
+      inputs:
+        reports: '$(Build.SourcesDirectory)/**/coverage.cobertura.xml'
+        targetdir: '$(Build.SourcesDirectory)/CodeCoverage'
+      displayName: 'Generate Code Coverage Report'
+
+    # CodeQL Publish nur in develop
+    - task: AdvancedSecurity-Publish@1
+      condition: eq(variables['Build.SourceBranch'], 'refs/heads/develop')
+      displayName: 'Publish CodeQL results'
+
+    # Mirror to GitHub
+    - task: Bash@3
+      inputs:
+        targetType: 'inline'
+        script: |             
+          if [ -d "$(AppName)" ]; then
+              rm -rf "$(AppName)"
+              echo "Das Verzeichnis '$(AppName)' wurde gelöscht."
+          else
+              echo "Das Verzeichnis '$(AppName)' existiert nicht."
+          fi
+          
+          git clone --mirror https://saigkill:$(AzurePAT)@dev.azure.com/saigkill/$(AppName)/_git/$(AppName) ./$(AppName) --verbose
+          cd $(AppName)
+          git remote add github https://saigkill:$(GithubPAT)@github.com/saigkill/$(AppName).git
+          git push github --mirror
+      displayName: 'Mirror to Github'
+
+    # ZIP nur bei Tags
+    - task: ArchiveFiles@2      
+      inputs:
+        rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/$(AppName)'
+        includeRootFolder: false
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/$(ArtifactName)'
+        replaceExistingArchive: true
+      displayName: 'Create ZIP'
+
+    # Artefakt veröffentlichen
+    - publish: $(Build.ArtifactStagingDirectory)
+      artifact: $(RID)
+      displayName: "Publish Artifact"
+
+# ---------------------------------------------------------
+#  STAGE: RELEASE (nur bei Tags)
+# ---------------------------------------------------------
+- stage: Release
+  displayName: "Create GitHub Release"
+  condition: startsWith(variables['Build.SourceBranch'], 'refs/tags/')
+  jobs:
+  - job: ReleaseJob
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+
+    - download: current
+      artifact: linux-x64
+
+    - download: current
+      artifact: win-x64
+
+    - task: DownloadPipelineArtifact@2
+      displayName: "Download QPKG"
+      inputs:
+        artifact: "qpkg"
+        path: "$(Build.SourcesDirectory)/release"
+
+    - task: GitHubRelease@1
+      inputs:
+        gitHubConnection: 'github.com_saigkill'
+        repositoryName: 'saigkill/$(AppName)'
+        action: 'create'
+        tagSource: 'gitTag'
+        assets: |
+          $(Pipeline.Workspace)/linux-x64/*.zip
+          $(Pipeline.Workspace)/win-x64/*.zip
+          $(Build.SourcesDirectory)/release/*.qpkg
+        title: 'Release $(Build.SourceBranchName)'
+        isDraft: false
+        isPreRelease: false
+      displayName: 'Create GitHub Release'
