@@ -12,6 +12,8 @@ pool:
 
 variables:
   BuildConfiguration: 'Release'
+  version: $[coalesce(variables['Build.SourceVersion'], variables['Build.BuildId'])]
+  AppName: 'ServiceMonitor'
 
 stages:
 
@@ -28,11 +30,11 @@ stages:
         linux:
           vmImage: 'ubuntu-latest'
           RID: 'linux-x64'
-          ArtifactName: '$(AppName)-Linux-$(PackageVersion).zip'
+          ArtifactName: '$(AppName)-Linux-$(version).zip'
         windows:
           vmImage: 'windows-latest'
           RID: 'win-x64'
-          ArtifactName: '$(AppName)-Windows-$(PackageVersion).zip'
+          ArtifactName: '$(AppName)-Windows-$(version).zip'
 
     pool:
       vmImage: $(vmImage)
@@ -44,6 +46,10 @@ stages:
       inputs:
         packageType: 'sdk'
         version: '9.x'
+
+    - script: |
+      dotnet restore dotnet build --configuration $(buildConfiguration)
+      displayName: "Restore & Build"
 
     # CodeQL nur in develop
     - task: AdvancedSecurity-Codeql-Init@1
@@ -136,6 +142,127 @@ stages:
       artifact: $(RID)
       displayName: "Publish Artifact"
 
+# ============================================================
+# STAGE: PACKAGING (Linux only)
+# ============================================================
+- stage: Package
+  displayName: "Package Stage"
+  dependsOn: Build
+  jobs:
+  - job: PackageLinux
+    displayName: "Build DEB + RPM"
+    pool:
+      vmImage: "ubuntu-latest"
+
+    variables:
+      version: $[coalesce(variables['Build.SourceVersion'], variables['Build.BuildId'])]
+
+    steps:
+    # Download Linux build artifacts
+    - download: current
+      artifact: $(RID)
+
+    - script: |
+        unzip $(RID)/ServiceMonitor-linux-x64.zip -d publish/linux-x64
+      displayName: "Unzip Linux Build"
+
+    # Install FPM
+    - script: |
+        sudo apt-get update
+        sudo apt-get install -y ruby ruby-dev build-essential rpm
+        sudo gem install --no-document fpm
+      displayName: "Install FPM"
+
+    # systemd unit
+    - script: |
+        mkdir -p systemd
+        cat <<EOF > systemd/servicemonitor.service
+[Unit]
+Description=ServiceMonitor
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/ServiceMonitor
+WorkingDirectory=/usr/local/bin
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+      displayName: "Generate systemd unit"
+
+    # DEB scripts
+    - script: |
+        mkdir -p deb-scripts
+        cat <<EOF > deb-scripts/postinst
+#!/bin/bash
+set -e
+systemctl daemon-reload
+systemctl enable servicemonitor.service || true
+systemctl restart servicemonitor.service || true
+EOF
+        chmod +x deb-scripts/postinst
+
+        cat <<EOF > deb-scripts/postrm
+#!/bin/bash
+set -e
+systemctl stop servicemonitor.service || true
+systemctl disable servicemonitor.service || true
+systemctl daemon-reload
+EOF
+        chmod +x deb-scripts/postrm
+      displayName: "Generate DEB scripts"
+
+    # RPM scripts
+    - script: |
+        mkdir -p rpm-scripts
+        cat <<EOF > rpm-scripts/pre
+#!/bin/bash
+echo "Preparing to install ServiceMonitor"
+EOF
+        chmod +x rpm-scripts/pre
+
+        cat <<EOF > rpm-scripts/post
+#!/bin/bash
+systemctl daemon-reload
+systemctl enable servicemonitor.service || true
+systemctl restart servicemonitor.service || true
+EOF
+        chmod +x rpm-scripts/post
+      displayName: "Generate RPM scripts"
+
+    # Build DEB
+    - script: |
+        fpm -s dir -t deb \
+          -n servicemonitor \
+          -v $(version) \
+          --after-install deb-scripts/postinst \
+          --after-remove deb-scripts/postrm \
+          --prefix /usr/local/bin \
+          publish/linux-x64/=usr/local/bin/ \
+          systemd/servicemonitor.service=/lib/systemd/system/servicemonitor.service
+      displayName: "Build DEB package"
+
+    # Build RPM
+    - script: |
+        fpm -s dir -t rpm \
+          -n servicemonitor \
+          -v $(version) \
+          --before-install rpm-scripts/pre \
+          --after-install rpm-scripts/post \
+          --prefix /usr/local/bin \
+          publish/linux-x64/=usr/local/bin/ \
+          systemd/servicemonitor.service=/usr/lib/systemd/system/servicemonitor.service
+      displayName: "Build RPM package"
+
+    # Publish artifacts
+    - publish: servicemonitor_$(version)_amd64.deb
+      artifact: deb
+
+    - publish: servicemonitor-$(version)-1.x86_64.rpm
+      artifact: rpm
+
 # ---------------------------------------------------------
 #  STAGE: RELEASE (nur bei Tags)
 # ---------------------------------------------------------
@@ -154,6 +281,12 @@ stages:
     - download: current
       artifact: win-x64
 
+    - download: current
+      artifact: deb
+
+    - download: current
+      artifact: rpm
+
     - task: DownloadPipelineArtifact@2
       displayName: "Download QPKG"
       inputs:
@@ -169,7 +302,8 @@ stages:
         assets: |
           $(Pipeline.Workspace)/linux-x64/*.zip
           $(Pipeline.Workspace)/win-x64/*.zip
-          $(Build.SourcesDirectory)/release/*.qpkg
+          $(Pipeline.Workspace)/deb/*.deb
+          $(Pipeline.Workspace)/rpm/*.rpm
         title: 'Release $(Build.SourceBranchName)'
         isDraft: false
         isPreRelease: false

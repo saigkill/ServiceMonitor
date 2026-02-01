@@ -42,6 +42,8 @@ File a bug report [on Github](https://github.com/saigkill/ServiceMonitor/issues)
 * On Windows
 * On Linux
 
+Download the latest release from the [Releases](https://github.com/saigkill/ServiceMonitor/releases).
+
 ## Configuration
 
 ServiceMonitor uses a JSON configuration file. Below is an example configuration:
