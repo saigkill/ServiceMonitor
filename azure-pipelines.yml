@@ -169,10 +169,10 @@ stages:
     steps:
     # Download Linux build artifacts
     - download: current
-      artifact: $(RID)
+      artifact: linux-x64
 
     - script: |
-        unzip $(RID)/ServiceMonitor-linux-x64.zip -d publish/linux-x64
+        unzip linux-x64/ServiceMonitor-linux-x64.zip -d publish/linux-x64
       displayName: "Unzip Linux Build"
 
     # Install FPM
