@@ -249,87 +249,50 @@ stages:
       displayName: "Install FPM"
 
     - script: |
-        set -e
         mkdir -p systemd
-        cat <<EOF > systemd/servicemonitor.service
-[Unit]
-Description=ServiceMonitor
-After=network.target
+        cp packaging/systemd/servicemonitor.service systemd/
+      displayName: "Copy systemd unit"
 
-[Service]
-ExecStart=/usr/local/bin/ServiceMonitor
-WorkingDirectory=/usr/local/bin
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-      displayName: "Generate systemd unit"
 
     - script: |
-        set -e
         mkdir -p deb-scripts
-        cat <<EOF > deb-scripts/postinst
-#!/bin/bash
-set -e
-systemctl daemon-reload
-systemctl enable servicemonitor.service || true
-systemctl restart servicemonitor.service || true
-EOF
-        chmod +x deb-scripts/postinst
+        cp packaging/deb/postinst deb-scripts/
+        cp packaging/deb/postrm deb-scripts/
+        chmod +x deb-scripts/postinst deb-scripts/postrm
+      displayName: "Copy DEB scripts"
 
-        cat <<EOF > deb-scripts/postrm
-#!/bin/bash
-set -e
-systemctl stop servicemonitor.service || true
-systemctl disable servicemonitor.service || true
-systemctl daemon-reload
-EOF
-        chmod +x deb-scripts/postrm
-      displayName: "Generate DEB scripts"
 
     - script: |
-        set -e
         mkdir -p rpm-scripts
-        cat <<EOF > rpm-scripts/pre
-#!/bin/bash
-echo "Preparing to install ServiceMonitor"
-EOF
-        chmod +x rpm-scripts/pre
+        cp packaging/rpm/pre rpm-scripts/
+        cp packaging/rpm/post rpm-scripts/
+        chmod +x rpm-scripts/pre rpm-scripts/post
+      displayName: "Copy RPM scripts"
 
-        cat <<EOF > rpm-scripts/post
-#!/bin/bash
-systemctl daemon-reload
-systemctl enable servicemonitor.service || true
-systemctl restart servicemonitor.service || true
-EOF
-        chmod +x rpm-scripts/post
-      displayName: "Generate RPM scripts"
 
     - script: |
-        set -e
         fpm -s dir -t deb \
-          -n servicemonitor \
-          -v $(version) \
-          --after-install deb-scripts/postinst \
-          --after-remove deb-scripts/postrm \
-          --prefix /usr/local/bin \
-          publish/linux-x64/=usr/local/bin/ \
-          systemd/servicemonitor.service=/lib/systemd/system/servicemonitor.service
+        -n servicemonitor \
+        -v $(version) \
+        --after-install deb-scripts/postinst \
+        --after-remove deb-scripts/postrm \
+        --prefix /usr/local/bin \
+        publish/linux-x64/=usr/local/bin/ \
+        systemd/servicemonitor.service=/lib/systemd/system/servicemonitor.service
       displayName: "Build DEB package"
 
+
     - script: |
-        set -e
         fpm -s dir -t rpm \
-          -n servicemonitor \
-          -v $(version) \
-          --before-install rpm-scripts/pre \
-          --after-install rpm-scripts/post \
-          --prefix /usr/local/bin \
-          publish/linux-x64/=usr/local/bin/ \
-          systemd/servicemonitor.service=/usr/lib/systemd/system/servicemonitor.service
+        -n servicemonitor \
+        -v $(version) \
+        --before-install rpm-scripts/pre \
+        --after-install rpm-scripts/post \
+        --prefix /usr/local/bin \
+        publish/linux-x64/=usr/local/bin/ \
+        systemd/servicemonitor.service=/usr/lib/systemd/system/servicemonitor.service
       displayName: "Build RPM package"
+
 
     - publish: "servicemonitor_amd64.deb"
       displayName: "Publish DEB artifact"
