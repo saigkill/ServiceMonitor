@@ -39,6 +39,10 @@ stages:
     pool:
       vmImage: $(vmImage)
 
+    variables:
+      version: $[coalesce(variables['Build.SourceVersion'], variables['Build.BuildId'])]
+      AppName: 'ServiceMonitor'
+
     steps:
 
     # DotNet SDK
@@ -52,7 +56,8 @@ stages:
       inputs:
         targetType: 'inline'
         script: |             
-          dotnet restore dotnet build --configuration $(buildConfiguration)
+          dotnet restore
+          dotnet build --configuration $(buildConfiguration)
       displayName: "Restore & Build"      
 
     # CodeQL nur in develop
