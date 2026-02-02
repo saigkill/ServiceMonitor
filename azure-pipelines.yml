@@ -35,7 +35,7 @@ stages:
 
     variables:
       RID: linux-x64
-      ArtifactName: '$(AppName)-Linux-$(version).zip'
+      ArtifactName: '$(AppName)-Linux.zip'
 
     steps:
     - task: UseDotNet@2
@@ -44,21 +44,21 @@ stages:
         packageType: sdk
         version: 9.x
 
-    - task: Bash@3
-      displayName: "Restore & Build"
-      inputs:
-        targetType: inline
-        script: |
-          set -e
-          dotnet restore
-          dotnet build --configuration $(BuildConfiguration)
-
     - task: AdvancedSecurity-Codeql-Init@1
       displayName: "Initialize CodeQL"
       condition: eq(variables['Build.SourceBranch'], 'refs/heads/develop')
       inputs:
         languages: csharp
         querysuite: security-and-quality
+
+    - task: Bash@3
+      displayName: "Restore & Build"
+      inputs:
+        targetType: inline
+        script: |
+          set -e
+          dotnet restore src/$(AppName).slnx
+          dotnet build --configuration $(BuildConfiguration)    
 
     - task: DotNetCoreCLI@2
       displayName: "Publish Console App (Linux)"
@@ -167,7 +167,7 @@ stages:
       inputs:
         targetType: inline
         script: |
-          dotnet restore
+          dotnet restore src/$(AppName).slnx
           dotnet build --configuration $(BuildConfiguration)
 
     - task: DotNetCoreCLI@2
