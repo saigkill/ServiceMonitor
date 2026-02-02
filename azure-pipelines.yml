@@ -14,7 +14,8 @@ variables:
   BuildConfiguration: Release
   AppName: ServiceMonitor
   # Fallback: Commit-Hash oder BuildId
-  version: $[coalesce(variables['Build.SourceVersion'], variables['Build.BuildId'])]
+  #version: $[coalesce(variables['Build.SourceVersion'], variables['Build.BuildId'])]
+  version: '1.0.0'
 
 stages:
 
