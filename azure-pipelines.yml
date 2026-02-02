@@ -8,12 +8,13 @@ trigger:
       - v*
 
 pool:
-  vmImage: 'ubuntu-latest'  
+  vmImage: ubuntu-latest
 
 variables:
-  BuildConfiguration: 'Release'
+  BuildConfiguration: Release
+  AppName: ServiceMonitor
+  # Fallback: Commit-Hash oder BuildId
   version: $[coalesce(variables['Build.SourceVersion'], variables['Build.BuildId'])]
-  AppName: 'ServiceMonitor'
 
 stages:
 
@@ -23,133 +24,195 @@ stages:
 - stage: Build
   displayName: "Build Linux + Windows"
   jobs:
-  - job: MatrixBuild
-    displayName: "Matrix Build"
-    strategy:
-      matrix:
-        linux:
-          vmImage: 'ubuntu-latest'
-          RID: 'linux-x64'
-          ArtifactName: '$(AppName)-Linux-$(version).zip'
-        windows:
-          vmImage: 'windows-latest'
-          RID: 'win-x64'
-          ArtifactName: '$(AppName)-Windows-$(version).zip'
 
+  # -------------------------
+  # Linux Build
+  # -------------------------
+  - job: Build_Linux
+    displayName: "Build Linux"
     pool:
-      vmImage: $(vmImage)
+      vmImage: ubuntu-latest
 
     variables:
-      version: $[coalesce(variables['Build.SourceVersion'], variables['Build.BuildId'])]
-      AppName: 'ServiceMonitor'
+      RID: linux-x64
+      ArtifactName: '$(AppName)-Linux-$(version).zip'
 
     steps:
-
-    # DotNet SDK
     - task: UseDotNet@2
+      displayName: "Install .NET SDK"
       inputs:
-        packageType: 'sdk'
-        version: '9.x'
+        packageType: sdk
+        version: 9.x
 
-    # Restore & Build
     - task: Bash@3
+      displayName: "Restore & Build"
       inputs:
-        targetType: 'inline'
-        script: |             
+        targetType: inline
+        script: |
+          set -e
           dotnet restore
-          dotnet build --configuration $(buildConfiguration)
-      displayName: "Restore & Build"      
+          dotnet build --configuration $(BuildConfiguration)
 
-    # CodeQL nur in develop
     - task: AdvancedSecurity-Codeql-Init@1
+      displayName: "Initialize CodeQL"
       condition: eq(variables['Build.SourceBranch'], 'refs/heads/develop')
       inputs:
-        languages: 'csharp'
-        querysuite: 'security-and-quality'
-      displayName: 'Initialize CodeQL'
+        languages: csharp
+        querysuite: security-and-quality
 
-    # Publish
     - task: DotNetCoreCLI@2
+      displayName: "Publish Console App (Linux)"
       inputs:
-        command: 'publish'
+        command: publish
         publishWebProjects: false
         projects: '**/*.csproj'
-        arguments: '--configuration $(BuildConfiguration) -r $(RID) --self-contained true --output $(Build.ArtifactStagingDirectory)/$(AppName)'
-      displayName: 'Publish Console App'
+        arguments: >
+          --configuration $(BuildConfiguration)
+          -r $(RID)
+          --self-contained true
+          --output $(Build.ArtifactStagingDirectory)/$(AppName)
 
-    # Tests
     - task: DotNetCoreCLI@2
+      displayName: "Run Unit Tests (Linux)"
       inputs:
-        command: 'test'
+        command: test
         projects: '**/*[Tt]est*/*.csproj'
-        arguments: '--collect:"XPlat Code Coverage" --logger:junit /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura'
-        testRunTitle: 'dotnet test'
-      displayName: 'Run Unit Tests'
+        arguments: >
+          --collect:"XPlat Code Coverage"
+          --logger:junit
+          /p:CollectCoverage=true
+          /p:CoverletOutputFormat=cobertura
+        testRunTitle: 'dotnet test (Linux)'
 
-    # CodeQL Analyse nur in develop
     - task: AdvancedSecurity-Codeql-Analyze@1
+      displayName: "Perform CodeQL analysis"
       condition: eq(variables['Build.SourceBranch'], 'refs/heads/develop')
-      displayName: 'Perform CodeQL analysis'
 
-    # Test Results
     - task: PublishTestResults@2
+      displayName: "Publish Test Results (Linux)"
       inputs:
-        testResultsFormat: 'JUnit'
+        testResultsFormat: JUnit
         testResultsFiles: '**/TestResults/TestResults.xml'
-        testRunTitle: 'Run Testresults'
-      displayName: 'Publish Test Results'
+        testRunTitle: 'Run Testresults (Linux)'
 
-    # Coverage
     - task: PublishCodeCoverageResults@2
+      displayName: "Publish Code Coverage Results (Linux)"
       inputs:
         summaryFileLocation: '$(Build.SourcesDirectory)/**/coverage.cobertura.xml'
         pathToSources: '$(System.DefaultWorkingDirectory)/**/coverage'
-      displayName: 'Publish Code Coverage Results'
 
-    # Coverage Report
     - task: reportgenerator@5
+      displayName: "Generate Code Coverage Report (Linux)"
       inputs:
         reports: '$(Build.SourcesDirectory)/**/coverage.cobertura.xml'
         targetdir: '$(Build.SourcesDirectory)/CodeCoverage'
-      displayName: 'Generate Code Coverage Report'
 
-    # CodeQL Publish nur in develop
     - task: AdvancedSecurity-Publish@1
+      displayName: "Publish CodeQL results"
       condition: eq(variables['Build.SourceBranch'], 'refs/heads/develop')
-      displayName: 'Publish CodeQL results'
 
-    # Mirror to GitHub
     - task: Bash@3
+      displayName: "Mirror to GitHub"
       inputs:
-        targetType: 'inline'
-        script: |             
-          if [ -d "$(AppName)" ]; then
-              rm -rf "$(AppName)"
-              echo "Das Verzeichnis '$(AppName)' wurde gelöscht."
-          else
-              echo "Das Verzeichnis '$(AppName)' existiert nicht."
-          fi
-          
-          git clone --mirror https://saigkill:$(AzurePAT)@dev.azure.com/saigkill/$(AppName)/_git/$(AppName) ./$(AppName) --verbose
-          cd $(AppName)
-          git remote add github https://saigkill:$(GithubPAT)@github.com/saigkill/$(AppName).git
-          git push github --mirror
-      displayName: 'Mirror to Github'
+        targetType: inline
+        script: |
+          set -e
 
-    # ZIP nur bei Tags
-    - task: ArchiveFiles@2      
+          if [ -d "$(AppName)" ]; then
+            rm -rf "$(AppName)"
+            echo "Das Verzeichnis '$(AppName)' wurde gelöscht."
+          else
+            echo "Das Verzeichnis '$(AppName)' existiert nicht."
+          fi
+
+          git clone --mirror "https://saigkill:$(AzurePAT)@dev.azure.com/saigkill/$(AppName)/_git/$(AppName)" "./$(AppName)" --verbose
+          cd "$(AppName)"
+          git remote add github "https://saigkill:$(GithubPAT)@github.com/saigkill/$(AppName).git"
+          git push github --mirror
+
+    - task: ArchiveFiles@2
+      displayName: "Create ZIP (Linux)"
       inputs:
         rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/$(AppName)'
         includeRootFolder: false
-        archiveType: 'zip'
+        archiveType: zip
         archiveFile: '$(Build.ArtifactStagingDirectory)/$(ArtifactName)'
         replaceExistingArchive: true
-      displayName: 'Create ZIP'
 
-    # Artefakt veröffentlichen
-    - publish: $(Build.ArtifactStagingDirectory)
-      artifact: $(RID)
-      displayName: "Publish Artifact"
+    - publish: '$(Build.ArtifactStagingDirectory)'
+      displayName: "Publish Artifact (Linux)"
+      artifact: linux-x64
+
+  # -------------------------
+  # Windows Build
+  # -------------------------
+  - job: Build_Windows
+    displayName: "Build Windows"
+    pool:
+      vmImage: windows-latest
+
+    variables:
+      RID: win-x64
+      ArtifactName: '$(AppName)-Windows-$(version).zip'
+
+    steps:
+    - task: UseDotNet@2
+      displayName: "Install .NET SDK"
+      inputs:
+        packageType: sdk
+        version: 9.x
+
+    - task: PowerShell@2
+      displayName: "Restore & Build"
+      inputs:
+        targetType: inline
+        script: |
+          dotnet restore
+          dotnet build --configuration $(BuildConfiguration)
+
+    - task: DotNetCoreCLI@2
+      displayName: "Publish Console App (Windows)"
+      inputs:
+        command: publish
+        publishWebProjects: false
+        projects: '**/*.csproj'
+        arguments: >
+          --configuration $(BuildConfiguration)
+          -r $(RID)
+          --self-contained true
+          --output $(Build.ArtifactStagingDirectory)/$(AppName)
+
+    - task: DotNetCoreCLI@2
+      displayName: "Run Unit Tests (Windows)"
+      inputs:
+        command: test
+        projects: '**/*[Tt]est*/*.csproj'
+        arguments: >
+          --collect:"XPlat Code Coverage"
+          --logger:junit
+          /p:CollectCoverage=true
+          /p:CoverletOutputFormat=cobertura
+        testRunTitle: 'dotnet test (Windows)'
+
+    - task: PublishTestResults@2
+      displayName: "Publish Test Results (Windows)"
+      inputs:
+        testResultsFormat: JUnit
+        testResultsFiles: '**/TestResults/TestResults.xml'
+        testRunTitle: 'Run Testresults (Windows)'
+
+    - task: ArchiveFiles@2
+      displayName: "Create ZIP (Windows)"
+      inputs:
+        rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/$(AppName)'
+        includeRootFolder: false
+        archiveType: zip
+        archiveFile: '$(Build.ArtifactStagingDirectory)/$(ArtifactName)'
+        replaceExistingArchive: true
+
+    - publish: '$(Build.ArtifactStagingDirectory)'
+      displayName: "Publish Artifact (Windows)"
+      artifact: win-x64
 
 # ============================================================
 # STAGE: PACKAGING (Linux only)
@@ -157,33 +220,36 @@ stages:
 - stage: Package
   displayName: "Package Stage"
   dependsOn: Build
+  condition: succeeded()
   jobs:
   - job: PackageLinux
     displayName: "Build DEB + RPM"
     pool:
-      vmImage: "ubuntu-latest"
+      vmImage: ubuntu-latest
 
     variables:
       version: $[coalesce(variables['Build.SourceVersion'], variables['Build.BuildId'])]
 
     steps:
-    # Download Linux build artifacts
     - download: current
+      displayName: "Download Linux artifact"
       artifact: linux-x64
 
     - script: |
+        set -e
+        mkdir -p publish/linux-x64
         unzip linux-x64/ServiceMonitor-linux-x64.zip -d publish/linux-x64
       displayName: "Unzip Linux Build"
 
-    # Install FPM
     - script: |
+        set -e
         sudo apt-get update
         sudo apt-get install -y ruby ruby-dev build-essential rpm
         sudo gem install --no-document fpm
       displayName: "Install FPM"
 
-    # systemd unit
     - script: |
+        set -e
         mkdir -p systemd
         cat <<EOF > systemd/servicemonitor.service
 [Unit]
@@ -201,8 +267,8 @@ WantedBy=multi-user.target
 EOF
       displayName: "Generate systemd unit"
 
-    # DEB scripts
     - script: |
+        set -e
         mkdir -p deb-scripts
         cat <<EOF > deb-scripts/postinst
 #!/bin/bash
@@ -223,8 +289,8 @@ EOF
         chmod +x deb-scripts/postrm
       displayName: "Generate DEB scripts"
 
-    # RPM scripts
     - script: |
+        set -e
         mkdir -p rpm-scripts
         cat <<EOF > rpm-scripts/pre
 #!/bin/bash
@@ -241,8 +307,8 @@ EOF
         chmod +x rpm-scripts/post
       displayName: "Generate RPM scripts"
 
-    # Build DEB
     - script: |
+        set -e
         fpm -s dir -t deb \
           -n servicemonitor \
           -v $(version) \
@@ -253,8 +319,8 @@ EOF
           systemd/servicemonitor.service=/lib/systemd/system/servicemonitor.service
       displayName: "Build DEB package"
 
-    # Build RPM
     - script: |
+        set -e
         fpm -s dir -t rpm \
           -n servicemonitor \
           -v $(version) \
@@ -265,11 +331,12 @@ EOF
           systemd/servicemonitor.service=/usr/lib/systemd/system/servicemonitor.service
       displayName: "Build RPM package"
 
-    # Publish artifacts
     - publish: "servicemonitor_$(version)_amd64.deb"
+      displayName: "Publish DEB artifact"
       artifact: deb
 
     - publish: "servicemonitor-$(version)-1.x86_64.rpm"
+      displayName: "Publish RPM artifact"
       artifact: rpm
 
 # ---------------------------------------------------------
@@ -277,43 +344,51 @@ EOF
 # ---------------------------------------------------------
 - stage: Release
   displayName: "Create GitHub Release"
-  condition: startsWith(variables['Build.SourceBranch'], 'refs/tags/')
+  dependsOn:
+    - Build
+    - Package
+  condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
   jobs:
   - job: ReleaseJob
+    displayName: "Create GitHub Release"
     pool:
-      vmImage: 'ubuntu-latest'
+      vmImage: ubuntu-latest
     steps:
-
     - download: current
+      displayName: "Download Linux ZIP"
       artifact: linux-x64
 
     - download: current
+      displayName: "Download Windows ZIP"
       artifact: win-x64
 
     - download: current
+      displayName: "Download DEB"
       artifact: deb
 
     - download: current
+      displayName: "Download RPM"
       artifact: rpm
 
     - task: DownloadPipelineArtifact@2
       displayName: "Download QPKG"
       inputs:
-        artifact: "qpkg"
+        artifact: qpkg
         path: "$(Build.SourcesDirectory)/release"
 
     - task: GitHubRelease@1
+      displayName: "Create GitHub Release"
       inputs:
-        gitHubConnection: 'github.com_saigkill'
-        repositoryName: 'saigkill/$(AppName)'
-        action: 'create'
-        tagSource: 'gitTag'
+        gitHubConnection: github.com_saigkill
+        repositoryName: "saigkill/$(AppName)"
+        action: create
+        tagSource: gitTag
         assets: |
           $(Pipeline.Workspace)/linux-x64/*.zip
           $(Pipeline.Workspace)/win-x64/*.zip
           $(Pipeline.Workspace)/deb/*.deb
           $(Pipeline.Workspace)/rpm/*.rpm
-        title: 'Release $(Build.SourceBranchName)'
+          $(Build.SourcesDirectory)/release/*.qpkg
+        title: "Release $(Build.SourceBranchName)"
         isDraft: false
         isPreRelease: false
-      displayName: 'Create GitHub Release'
