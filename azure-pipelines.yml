@@ -153,7 +153,7 @@ stages:
 
     variables:
       RID: win-x64
-      ArtifactName: '$(AppName)-Windows-$(version).zip'
+      ArtifactName: '$(AppName)-Windows.zip'
 
     steps:
     - task: UseDotNet@2
@@ -331,11 +331,11 @@ EOF
           systemd/servicemonitor.service=/usr/lib/systemd/system/servicemonitor.service
       displayName: "Build RPM package"
 
-    - publish: "servicemonitor_$(version)_amd64.deb"
+    - publish: "servicemonitor_amd64.deb"
       displayName: "Publish DEB artifact"
       artifact: deb
 
-    - publish: "servicemonitor-$(version)-1.x86_64.rpm"
+    - publish: "servicemonitor-1.x86_64.rpm"
       displayName: "Publish RPM artifact"
       artifact: rpm
 
