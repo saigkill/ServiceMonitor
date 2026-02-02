@@ -266,10 +266,10 @@ EOF
       displayName: "Build RPM package"
 
     # Publish artifacts
-    - publish: servicemonitor_$(version)_amd64.deb
+    - publish: "servicemonitor_$(version)_amd64.deb"
       artifact: deb
 
-    - publish: servicemonitor-$(version)-1.x86_64.rpm
+    - publish: "servicemonitor-$(version)-1.x86_64.rpm"
       artifact: rpm
 
 # ---------------------------------------------------------
