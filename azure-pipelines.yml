@@ -15,7 +15,7 @@ variables:
   AppName: ServiceMonitor
   # Fallback: Commit-Hash oder BuildId
   #version: $[coalesce(variables['Build.SourceVersion'], variables['Build.BuildId'])]
-  version: '1.0.0'
+  version: $(PackageVersion)
 
 stages:
 
@@ -36,7 +36,7 @@ stages:
 
     variables:
       RID: linux-x64
-      ArtifactName: '$(AppName)-Linux.zip'
+      ArtifactName: '$(AppName)-Linux-x64.zip'
 
     steps:
     - task: UseDotNet@2
@@ -154,7 +154,7 @@ stages:
 
     variables:
       RID: win-x64
-      ArtifactName: '$(AppName)-Windows.zip'
+      ArtifactName: '$(AppName)-Windows-x64.zip'
 
     steps:
     - task: UseDotNet@2
@@ -239,7 +239,7 @@ stages:
     - script: |
         set -e
         mkdir -p publish/linux-x64
-        unzip linux-x64/ServiceMonitor-linux-x64.zip -d publish/linux-x64
+        unzip ServiceMonitor-Linux-x64.zip -d publish/linux-x64
       displayName: "Unzip Linux Build"
 
     - script: |
