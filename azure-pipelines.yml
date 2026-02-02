@@ -58,7 +58,7 @@ stages:
         script: |
           set -e
           dotnet restore src/$(AppName).slnx
-          dotnet build --configuration $(BuildConfiguration)    
+          dotnet build --configuration $(BuildConfiguration) src/$(AppName).slnx   
 
     - task: DotNetCoreCLI@2
       displayName: "Publish Console App (Linux)"
@@ -168,7 +168,7 @@ stages:
         targetType: inline
         script: |
           dotnet restore src/$(AppName).slnx
-          dotnet build --configuration $(BuildConfiguration)
+          dotnet build --configuration $(BuildConfiguration) src/$(AppName).slnx
 
     - task: DotNetCoreCLI@2
       displayName: "Publish Console App (Windows)"
