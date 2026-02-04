@@ -199,7 +199,7 @@ stages:
       displayName: "Publish Test Results (Windows)"
       inputs:
         testResultsFormat: JUnit
-        testResultsFiles: '**/TestResults/TestResults.xml'
+        testResultsFiles: '**/TestResults.xml'
         testRunTitle: 'Run Testresults (Windows)'
 
     - task: ArchiveFiles@2
@@ -292,10 +292,7 @@ stages:
         --prefix /usr/local/bin \
         publish/linux-x64/=usr/local/bin/ \
         systemd/servicemonitor.service=/usr/lib/systemd/system/servicemonitor.service
-      displayName: "Build RPM package"
-
-    - script: ls -la .
-      displayName: "List files in workspace"
+      displayName: "Build RPM package"    
 
 
     - publish: "servicemonitor_$(version)_amd64.deb"
