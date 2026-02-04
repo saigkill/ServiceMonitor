@@ -239,7 +239,7 @@ stages:
     - script: |
         set -e
         mkdir -p publish/linux-x64
-        unzip linux-x64/$(AppName)-Linux.zip -d publish/linux-x64
+        unzip $(Pipeline.Workspace)/linux-x64/$(AppName)-Linux.zip -d publish/linux-x64
       displayName: "Unzip Linux Build"
 
     - script: |
