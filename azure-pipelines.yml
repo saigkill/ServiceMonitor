@@ -298,11 +298,11 @@ stages:
       displayName: "List files in workspace"
 
 
-    - publish: "servicemonitor_amd64.deb"
+    - publish: "servicemonitor_$(version)_amd64.deb"
       displayName: "Publish DEB artifact"
       artifact: deb
 
-    - publish: "servicemonitor-1.x86_64.rpm"
+    - publish: "servicemonitor-$(version)-1.x86_64.rpm"
       displayName: "Publish RPM artifact"
       artifact: rpm
 
@@ -335,13 +335,7 @@ stages:
 
     - download: current
       displayName: "Download RPM"
-      artifact: rpm
-
-    - task: DownloadPipelineArtifact@2
-      displayName: "Download QPKG"
-      inputs:
-        artifact: qpkg
-        path: "$(Build.SourcesDirectory)/release"
+      artifact: rpm    
 
     - task: GitHubRelease@1
       displayName: "Create GitHub Release"
