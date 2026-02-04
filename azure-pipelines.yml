@@ -250,8 +250,7 @@ stages:
       displayName: "Install FPM"
 
     - script: |
-        mkdir -p systemd
-        ls -la .
+        mkdir -p systemd   
         cp packaging/systemd/servicemonitor.service systemd/
       displayName: "Copy systemd unit"
 
