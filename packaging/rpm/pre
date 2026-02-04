@@ -1,0 +1,2 @@
+#!/bin/bash
+echo "Preparing to install ServiceMonitor"
