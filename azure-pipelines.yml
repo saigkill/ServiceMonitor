@@ -251,6 +251,7 @@ stages:
 
     - script: |
         mkdir -p systemd
+        ls -la .
         cp packaging/systemd/servicemonitor.service systemd/
       displayName: "Copy systemd unit"
 
