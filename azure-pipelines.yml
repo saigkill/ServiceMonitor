@@ -20,7 +20,7 @@ variables:
 stages:
 
 # ---------------------------------------------------------
-#  STAGE: BUILD (Linux + Windows parallel)
+#  STAGE: BUILD (Linux + Windows)
 # ---------------------------------------------------------
 - stage: Build
   displayName: "Build Linux + Windows"
@@ -36,7 +36,7 @@ stages:
 
     variables:
       RID: linux-x64
-      ArtifactName: '$(AppName)-Linux-x64.zip' # ServiceMonitor-Linux-x64
+      ArtifactName: '$(AppName)-Linux.zip'
 
     steps:
     - task: UseDotNet@2
@@ -154,7 +154,7 @@ stages:
 
     variables:
       RID: win-x64
-      ArtifactName: '$(AppName)-Windows-x64.zip'
+      ArtifactName: '$(AppName)-Windows.zip'
 
     steps:
     - task: UseDotNet@2
@@ -239,7 +239,7 @@ stages:
     - script: |
         set -e
         mkdir -p publish/linux-x64
-        unzip linux-x64/ServiceMonitor-Linux-x64.zip -d publish/linux-x64
+        unzip linux-x64/$(AppName)-Linux.zip -d publish/linux-x64
       displayName: "Unzip Linux Build"
 
     - script: |
@@ -351,8 +351,7 @@ stages:
           $(Pipeline.Workspace)/linux-x64/*.zip
           $(Pipeline.Workspace)/win-x64/*.zip
           $(Pipeline.Workspace)/deb/*.deb
-          $(Pipeline.Workspace)/rpm/*.rpm
-          $(Build.SourcesDirectory)/release/*.qpkg
+          $(Pipeline.Workspace)/rpm/*.rpm       
         title: "Release $(Build.SourceBranchName)"
         isDraft: false
         isPreRelease: false
