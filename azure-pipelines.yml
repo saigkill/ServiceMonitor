@@ -199,7 +199,7 @@ stages:
       displayName: "Publish Test Results (Windows)"
       inputs:
         testResultsFormat: JUnit
-        testResultsFiles: '**/TestResults.xml'
+        testResultsFiles: '$(Agent.TempDirectory)/TestResults.xml'
         testRunTitle: 'Run Testresults (Windows)'
 
     - task: ArchiveFiles@2
