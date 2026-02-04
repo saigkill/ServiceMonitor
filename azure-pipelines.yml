@@ -294,6 +294,9 @@ stages:
         systemd/servicemonitor.service=/usr/lib/systemd/system/servicemonitor.service
       displayName: "Build RPM package"
 
+    - script: ls -la .
+      displayName: "List files in workspace"
+
 
     - publish: "servicemonitor_amd64.deb"
       displayName: "Publish DEB artifact"
