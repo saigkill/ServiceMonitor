@@ -93,7 +93,7 @@ stages:
       displayName: "Publish Test Results (Linux)"
       inputs:
         testResultsFormat: JUnit
-        testResultsFiles: '**/TestResults/TestResults.xml'
+        testResultsFiles: '$(Agent.TempDirectory)/TestResults.xml'
         testRunTitle: 'Run Testresults (Linux)'
 
     - task: PublishCodeCoverageResults@2
