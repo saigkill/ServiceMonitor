@@ -14,7 +14,7 @@ variables:
   BuildConfiguration: Release
   AppName: ServiceMonitor
   # Fallback: Commit-Hash oder BuildId
-  #version: $[coalesce(variables['Build.SourceVersion'], variables['Build.BuildId'])]
+  version: $[coalesce(variables['Build.SourceVersion'], variables['Build.BuildId'])]
   version: $(PackageVersion)
 
 stages:
@@ -36,7 +36,7 @@ stages:
 
     variables:
       RID: linux-x64
-      ArtifactName: '$(AppName)-Linux.zip'
+      ArtifactName: '$(AppName)-$(PackageVersion)-Linux.zip'
 
     steps:
     - task: UseDotNet@2
@@ -154,7 +154,7 @@ stages:
 
     variables:
       RID: win-x64
-      ArtifactName: '$(AppName)-Windows.zip'
+      ArtifactName: '$(AppName)-$(PackageVersion)-Windows.zip'
 
     steps:
     - task: UseDotNet@2
@@ -274,7 +274,7 @@ stages:
     - script: |
         fpm -s dir -t deb \
         -n servicemonitor \
-        -v $(version) \
+        -v $(PackageVersion) \
         --after-install deb-scripts/postinst \
         --after-remove deb-scripts/postrm \
         --prefix /usr/local/bin \
@@ -286,7 +286,7 @@ stages:
     - script: |
         fpm -s dir -t rpm \
         -n servicemonitor \
-        -v $(version) \
+        -v $(PackageVersion) \
         --before-install rpm-scripts/pre \
         --after-install rpm-scripts/post \
         --prefix /usr/local/bin \
@@ -295,11 +295,11 @@ stages:
       displayName: "Build RPM package"    
 
 
-    - publish: "servicemonitor_$(version)_amd64.deb"
+    - publish: "servicemonitor_$(PackageVersion)_amd64.deb"
       displayName: "Publish DEB artifact"
       artifact: deb
 
-    - publish: "servicemonitor-$(version)-1.x86_64.rpm"
+    - publish: "servicemonitor-$(PackageVersion)-1.x86_64.rpm"
       displayName: "Publish RPM artifact"
       artifact: rpm
 

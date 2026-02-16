@@ -1,23 +1,18 @@
-using System.Net;
-using System.Net.Mail;
-using System.Net.Http.Json;
-using System.IO;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using NLog.Extensions.Logging;
-using ServiceMonitor.Hosting;
 using ServiceMonitor.AppConfig;
+using ServiceMonitor.Hosting;
 
-namespace MagazineFetcher
+namespace ServiceMonitor
 {
 	internal class Program
 	{
 		static async Task Main(string[] args)
 		{
-			await Host.CreateDefaultBuilder(args)				
+			await Host.CreateDefaultBuilder(args)
 				.ConfigureAppConfiguration((context, services) =>
 				{
 					services.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
@@ -32,14 +27,14 @@ namespace MagazineFetcher
 				.ConfigureServices((hostContext, services) =>
 				{
 					var logDir = hostContext.Configuration["Configuration:Logging:LogDirectory"];
-					NLog.LogManager.Configuration.Variables["logDir"] = logDir;
+					NLog.LogManager.Configuration!.Variables["logDir"] = logDir;
 
 					services.AddHostedService<ConsoleHostedService>();
 					services.AddOptions<ServiceMonitorOptions>()
 						.Bind(hostContext.Configuration)
 						.ValidateDataAnnotations()
 						.ValidateOnStart();
-					services.AddSingleton<ServiceMonitor.Hosting.ServiceMonitor>();					
+					services.AddSingleton<ServiceMonitor.Hosting.ServiceMonitor>();
 				})
 				.ConfigureLogging(logging =>
 				{
