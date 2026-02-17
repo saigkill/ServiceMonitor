@@ -15,8 +15,26 @@ namespace ServiceMonitor
 			await Host.CreateDefaultBuilder(args)
 				.ConfigureAppConfiguration((context, services) =>
 				{
+					var configDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ServiceMonitor");
+					Directory.CreateDirectory(configDir);
+					var userConfigPath = Path.Combine(configDir, "appsettings.user.json");
+					var defaultConfigPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+
+					if (!File.Exists(userConfigPath))
+					{
+						if (!File.Exists(defaultConfigPath))
+						{
+							var defaultJson = File.ReadAllText(defaultConfigPath);
+							File.WriteAllText(userConfigPath, defaultJson);
+						}
+						else
+						{
+							File.WriteAllText(userConfigPath, "{}");
+						}
+					}
+
 					services.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
-					services.AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: true);
+					services.AddJsonFile(userConfigPath, optional: true, reloadOnChange: true);
 
 					if (context.HostingEnvironment.IsDevelopment())
 					{

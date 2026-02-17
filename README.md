@@ -7,20 +7,21 @@ ServiceMonitor is a lightweight, configuration‑driven monitoring tool designed
 It periodically checks a list of URLs and sends SMTP notifications when services become unreachable or return error states. 
 The focus is on robustness, simplicity, and clean extensibility.
 
-| W                           | W                                                                                                                                                                                                                          |     |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
-| Code                        | https://dev.azure.com/saigkill/ServiceMonitor                                                                                                                                                                              |     |
-| Continuous Integration Prod | [![Build Status](https://dev.azure.com/saigkill/ServiceMonitor/_apis/build/status%2FServiceMonitor-Prod?branchName=master)](https://dev.azure.com/saigkill/ServiceMonitor/_build/latest?definitionId=89&branchName=master) |     |
-| Continuous Integration Dev  | [![Build status](https://dev.azure.com/saigkill/ServiceMonitor/_apis/build/status/ServiceMonitor-Dev)](https://dev.azure.com/saigkill/ServiceMonitor/_build/latest?definitionId=93)                                        |     |
-| Code Coverage               | [![Coverage](https://img.shields.io/azure-devops/coverage/saigkill/ServiceMonitor/89)](https://dev.azure.com/saigkill/ServiceMonitor/_build/latest?definitionId=89)                                                        |     |
-| Bugreports                  | [![GitHub issues](https://img.shields.io/github/issues/saigkill/ServiceMonitor)](https://github.com/saigkill/ServiceMonitor/issues)                                                                                        |     |
-| Downloads all               | ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/saigkill/ServiceMonitor/total)                                                                                                      |     |
-| Language                    | ![Framework](https://img.shields.io/badge/.NET-9%2B-blue?logo=csharp)                                                                                                                                                      |     |
-| OS                          | ![Windows](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D6?logo=windows) ![Linux](https://img.shields.io/badge/Linux-DEB-0078D6?logo=linux) ![Linux](https://img.shields.io/badge/Linux-RPM-0078D6?logo=linux)   |     |
-| License                     | ![License](https://img.shields.io/badge/License-MIT-green)                                                                                                                                                                 |     |
-| Status                      | ![Status](https://img.shields.io/badge/Status-Active-success)                                                                                                                                                              |     |
-| Maintained                  | ![Maintained](https://img.shields.io/badge/Maintained-Yes-brightgreen)                                                                                                                                                     |     |
-| Blog                        | [![Blog](https://img.shields.io/badge/Blog-Saigkill-blue)](https://saschamanns.de)                                                                                                                                         |     |
+| W                           | W                                                                                                                                                                                                                                                                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Code                        | https://dev.azure.com/saigkill/ServiceMonitor                                                                                                                                                                                                                                                                             |
+| Continuous Integration Prod | [![Build status](https://dev.azure.com/saigkill/ServiceMonitor/_apis/build/status/ServiceMonitor-Prod)](https://dev.azure.com/saigkill/ServiceMonitor/_build/latest?definitionId=94)                                                                                                                                      |
+| Continuous Integration Dev  | [![Build status](https://dev.azure.com/saigkill/ServiceMonitor/_apis/build/status/ServiceMonitor-Dev)](https://dev.azure.com/saigkill/ServiceMonitor/_build/latest?definitionId=93)                                                                                                                                       |
+| Code Coverage               | [![Coverage](https://img.shields.io/azure-devops/coverage/saigkill/ServiceMonitor/89)](https://dev.azure.com/saigkill/ServiceMonitor/_build/latest?definitionId=89)                                                                                                                                                       |
+| Bugreports                  | [![GitHub issues](https://img.shields.io/github/issues/saigkill/ServiceMonitor)](https://github.com/saigkill/ServiceMonitor/issues)                                                                                                                                                                                       |
+| Workitems                   | [![Board Status](https://dev.azure.com/saigkill/3cb00ef8-116d-47c1-9c08-748af6bbb726/0978944f-fa4e-4711-9ff7-46d373d94899/_apis/work/boardbadge/281b6fb6-0842-442f-b921-8aa7582f26a2)](https://dev.azure.com/saigkill/3cb00ef8-116d-47c1-9c08-748af6bbb726/_boards/board/t/0978944f-fa4e-4711-9ff7-46d373d94899/Stories/) |
+| Downloads all               | ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/saigkill/ServiceMonitor/total)                                                                                                                                                                                                     |
+| Language                    | ![Framework](https://img.shields.io/badge/.NET-9%2B-blue?logo=csharp)                                                                                                                                                                                                                                                     |
+| OS                          | ![Windows](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D6?logo=windows) ![Linux](https://img.shields.io/badge/Linux-DEB-0078D6?logo=linux) ![Linux](https://img.shields.io/badge/Linux-RPM-0078D6?logo=linux)                                                                                                  |
+| License                     | ![License](https://img.shields.io/badge/License-MIT-green)                                                                                                                                                                                                                                                                |
+| Status                      | ![Status](https://img.shields.io/badge/Status-Active-success)                                                                                                                                                                                                                                                             |
+| Maintained                  | ![Maintained](https://img.shields.io/badge/Maintained-Yes-brightgreen)                                                                                                                                                                                                                                                    |
+| Blog                        | [![Blog](https://img.shields.io/badge/Blog-Saigkill-blue)](https://saschamanns.de)                                                                                                                                                                                                                                        |     
 
 File a bug report [on Github](https://github.com/saigkill/ServiceMonitor/issues).
 
@@ -38,7 +39,7 @@ File a bug report [on Github](https://github.com/saigkill/ServiceMonitor/issues)
 
 ### Requirements
 
-* .NET 8 Runtime
+* .NET 9 Runtime
 * Write access to the log directory
 * SMTP server access (optional, only needed for notifications)
 
@@ -48,6 +49,44 @@ File a bug report [on Github](https://github.com/saigkill/ServiceMonitor/issues)
 * On Linux
 
 Download the latest release from the [Releases](https://github.com/saigkill/ServiceMonitor/releases).
+
+### Linux ZIP          
+``````bash
+# Download and extract
+zipFile="ServiceMonitor-${Version}-Linux.zip"
+url="https://github.com/saigkill/ServiceMonitor/releases/download/${tagName}/${zipFile}"
+
+echo "Downloading: $url"
+curl -L -o "$zipFile" "$url"
+
+echo "Extracting..."
+unzip -o "$zipFile" -d "/home/username"
+
+# Run
+cd /home/username
+dotnet ServiceMonitor.dll
+``````
+
+### Windows ZIP          
+``````powershell
+# Download and extract
+Invoke-WebRequest -Uri "https://github.com/saigkill/ServiceMonitor/releases/download/$tagName/ServiceMonitor-$(Version)-Windows.zip" -OutFile "ServiceMonitor-$(Version)-Windows.zip"
+Expand-Archive -Path "ServiceMonitor-$(Version)-Windows.zip" -DestinationPath "C:\Users\Username"
+          
+# Run
+cd /home/username
+dotnet ServiceMonitor.dll
+``````
+
+### Linux DEB (Experimental)
+``````bash
+sudo apt install servicemonitor_$(Version)_amd64.deb
+``````
+
+### Linux rpm (Experimental)
+``````bash
+sudo rpm -i servicemonitor-$(Version)-1.x86_64.rpm
+``````
 
 ## Configuration
 

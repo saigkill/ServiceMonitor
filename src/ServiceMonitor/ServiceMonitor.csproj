@@ -9,6 +9,13 @@
     <UserSecretsId>dccaa3e8-4cda-4a7a-b057-50ebe40a4392</UserSecretsId>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <GenerateAppInstallerFile>true</GenerateAppInstallerFile>
+    <AppxPackage>true</AppxPackage>
+    <AppxBundle>Always</AppxBundle>
+    <AppxBundlePlatforms>x64</AppxBundlePlatforms>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.2" />
