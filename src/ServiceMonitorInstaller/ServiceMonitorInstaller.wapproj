@@ -54,9 +54,10 @@
     <TargetPlatformVersion>10.0.26100.0</TargetPlatformVersion>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <DefaultLanguage>de-DE</DefaultLanguage>
-    <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
+    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
     <NoWarn>$(NoWarn);NU1702</NoWarn>
     <EntryPointProjectUniqueName>..\ServiceMonitor\ServiceMonitor.csproj</EntryPointProjectUniqueName>
+    <PackageCertificateThumbprint>7D7C7AE7E2BE0F6ECA3F6413BB328BD391009498</PackageCertificateThumbprint>
   </PropertyGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest">
@@ -115,6 +116,7 @@
     <Content Include="Images\Wide310x150Logo.scale-150.png" />
     <Content Include="Images\Wide310x150Logo.scale-200.png" />
     <Content Include="Images\Wide310x150Logo.scale-400.png" />
+    <None Include="ServiceMonitorInstaller_TemporaryKey.pfx" />
   </ItemGroup>
   <Import Project="$(WapProjPath)\Microsoft.DesktopBridge.targets" />
   <ItemGroup>
