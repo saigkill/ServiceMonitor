@@ -112,7 +112,16 @@ ServiceMonitor uses a JSON configuration file. Below is an example configuration
 }
 ```
 
-### Opeions Classes
+### Configuration File
+
+ServiceMonitor is developed cross‑platform and can be configured using a JSON file. After the first start, a appsettings.user.json file will be created and then it fails.
+The configuration file is on one of the following paths:
+
+* Linux: /home/Username/.config/ServiceMonitor
+* Windows: C:\Users\Username\AppData\Local
+
+
+### Options Classes
 
 Configuration is bound using the .NET Options Pattern:
 ```csharp

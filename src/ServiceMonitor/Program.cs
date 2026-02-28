@@ -8,21 +8,21 @@ using ServiceMonitor.Hosting;
 
 namespace ServiceMonitor
 {
-	internal class Program
+	internal static class Program
 	{
 		static async Task Main(string[] args)
 		{
 			await Host.CreateDefaultBuilder(args)
 				.ConfigureAppConfiguration((context, services) =>
 				{
-					var configDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ServiceMonitor");
+					var configDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ServiceMonitor");
 					Directory.CreateDirectory(configDir);
-					var userConfigPath = Path.Combine(configDir, "appsettings.user.json");
-					var defaultConfigPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+					var userConfigPath = Path.Join(configDir, "appsettings.user.json");
+					var defaultConfigPath = Path.Join(AppContext.BaseDirectory, "appsettings.json");
 
 					if (!File.Exists(userConfigPath))
 					{
-						if (!File.Exists(defaultConfigPath))
+						if (File.Exists(defaultConfigPath))
 						{
 							var defaultJson = File.ReadAllText(defaultConfigPath);
 							File.WriteAllText(userConfigPath, defaultJson);
@@ -36,15 +36,13 @@ namespace ServiceMonitor
 					services.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
 					services.AddJsonFile(userConfigPath, optional: true, reloadOnChange: true);
 
-					if (context.HostingEnvironment.IsDevelopment())
-					{
-						services.AddUserSecrets<Program>();
-					}
 					services.AddCommandLine(args);
 				})
 				.ConfigureServices((hostContext, services) =>
 				{
-					var logDir = hostContext.Configuration["Configuration:Logging:LogDirectory"];
+					var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+					var logDir = Path.Combine(baseDir, "ServiceMonitor", "logs");
+					Directory.CreateDirectory(logDir);
 					NLog.LogManager.Configuration!.Variables["logDir"] = logDir;
 
 					services.AddHostedService<ConsoleHostedService>();

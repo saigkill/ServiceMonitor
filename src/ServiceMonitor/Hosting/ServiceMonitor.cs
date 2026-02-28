@@ -8,8 +8,8 @@ namespace ServiceMonitor.Hosting
 {
 	internal class ServiceMonitor
 	{
-		internal IOptions<ServiceMonitorOptions> _options;
-		internal ILogger<ServiceMonitor> _logger;
+		readonly internal IOptions<ServiceMonitorOptions> _options;
+		readonly internal ILogger<ServiceMonitor> _logger;
 
 		public ServiceMonitor(IOptions<ServiceMonitorOptions> options, ILogger<ServiceMonitor> logger)
 		{
@@ -48,13 +48,15 @@ namespace ServiceMonitor.Hosting
 				}
 			}
 
+			http.Dispose();
+
 			async Task SendAlert(string url, string message)
 			{
 				var mail = new MailMessage(
 					smtpConfig.From,
 					smtpConfig.To,
-					$"Dienst nicht erreichbar: {url}",
-					$"Der Dienst {url} ist nicht erreichbar.\n\nFehler: {message}"
+					$"Service not reachable: {url}",
+					$"The service {url} is not reachable.\n\nError: {message}"
 				);
 
 				using var smtp = new SmtpClient(smtpConfig.Server, smtpConfig.Port)
@@ -69,10 +71,12 @@ namespace ServiceMonitor.Hosting
 				try
 				{
 					await smtp.SendMailAsync(mail);
+					mail.Dispose();
 				}
-				catch
+				catch (Exception ex)
 				{
-					_logger.LogError("Failed to send alert email for service {Url}", url);
+					_logger.LogError(ex, "Failed to send alert email for service {Url}", url);
+					mail.Dispose();
 				}
 			}
 		}
