@@ -1,5 +1,0 @@
-#!/bin/bash
-set -e
-systemctl stop servicemonitor.service || true
-systemctl disable servicemonitor.service || true
-systemctl daemon-reload

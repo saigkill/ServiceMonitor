@@ -1,5 +1,0 @@
-#!/bin/bash
-set -e
-systemctl daemon-reload
-systemctl enable servicemonitor.service || true
-systemctl restart servicemonitor.service || true

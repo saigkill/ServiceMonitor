@@ -2,34 +2,41 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Version>1.1.1</Version>
-    <UserSecretsId>dccaa3e8-4cda-4a7a-b057-50ebe40a4392</UserSecretsId>
     <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <PackageId>Saigkill.$(AssemblyName)</PackageId>
+    <Title>ServiceMonitor is a lightweight, configuration‑driven monitoring tool designed for Linux‑based systems (including QNAP NAS).</Title>
+    <Authors>Saigkill</Authors>
+    <Description>ServiceMonitor is a lightweight, configuration‑driven monitoring tool designed for Linux‑based systems (including QNAP NAS). 
+It periodically checks a list of URLs and sends SMTP notifications when services become unreachable or return error states. 
+The focus is on robustness, simplicity, and clean extensibility.</Description>
+    <Copyright>(c) 2026 Sascha Manns</Copyright>
+    <PackageProjectUrl>https://dev.azure.com/saigkill/ServiceMonitor</PackageProjectUrl>
+    <RepositoryUrl>https://dev.azure.com/saigkill/_git/ServiceMonitor</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.2" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.2" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.2" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.2" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.2" />
-    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.2" />
-    <PackageReference Include="NLog" Version="6.1.0" />
-    <PackageReference Include="NLog.Extensions.Logging" Version="6.1.1" />
+    <PackageReference Include="Ardalis.GuardClauses" Version="5.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.3" />
+    <PackageReference Include="NLog" Version="6.1.1" />
+    <PackageReference Include="NLog.Extensions.Logging" Version="6.1.2" />
+    <PackageReference Include="Saigkill.Toolbox.Services" Version="2.3.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="appsettings.Development.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

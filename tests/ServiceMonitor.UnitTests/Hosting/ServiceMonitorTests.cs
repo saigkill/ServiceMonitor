@@ -1,217 +1,579 @@
-using System;
-using System.Collections.Generic;
 using System.Net;
-using System.Net.Http;
-using System.Net.Mail;
-using System.Threading;
-using System.Threading.Tasks;
-
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using MimeKit;
 using Moq;
-using ServiceMonitor.AppConfig;
+using Moq.Protected;
+using Saigkill.Toolbox.Services;
+using ServiceMonitor.Infrastructure.Configuration;
 
-namespace ServiceMonitor.Hosting.UnitTests
+namespace ServiceMonitor.UnitTests.Hosting
 {
-    /// <summary>
-    /// Unit tests for the <see cref="global::ServiceMonitor.Hosting.ServiceMonitor"/> class.
-    /// </summary>
     [TestClass]
     public class ServiceMonitorTests
     {
         /// <summary>
-        /// Tests that the constructor correctly assigns valid options and logger parameters to their respective fields.
+        /// Tests that StartAsync logs information and does not send alert when HTTP response is successful.
+        /// Input: Single URL with successful HTTP response (200 OK).
+        /// Expected: Information logged, no alert sent.
         /// </summary>
         [TestMethod]
-        [TestCategory("ProductionBugSuspected")]
-        [Ignore("ProductionBugSuspected")]
-        public void Constructor_WithValidParameters_AssignsFieldsCorrectly()
+        public async Task StartAsync_SuccessfulHttpResponse_LogsInformationOnly()
         {
             // Arrange
-            var mockOptions = new Mock<IOptions<ServiceMonitorOptions>>();
-            var mockLogger = new Mock<ILogger<global::ServiceMonitor.Hosting.ServiceMonitor>>();
+            var options = CreateOptions(new List<string> { "http://test.com" }, 30);
+            var mockLogger = new Mock<ILogger<ServiceMonitor.Hosting.ServiceMonitor>>();
+            var mockEmailService = new Mock<IEmailService>();
+            var mockHttpMessageHandler = new Mock<HttpMessageHandler>();
+
+            mockHttpMessageHandler.Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
+
+            var httpClient = new HttpClient(mockHttpMessageHandler.Object);
+            var mockHttpClientFactory = new Mock<IHttpClientFactory>();
+            mockHttpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+            var sut = new ServiceMonitor.Hosting.ServiceMonitor(options, mockLogger.Object, mockHttpClientFactory.Object, mockEmailService.Object);
 
             // Act
-            var serviceMonitor = new global::ServiceMonitor.Hosting.ServiceMonitor(mockOptions.Object, mockLogger.Object);
+            await sut.StartAsync(CancellationToken.None);
 
             // Assert
-            Assert.IsNotNull(serviceMonitor);
-            Assert.AreSame(mockOptions.Object, serviceMonitor._options);
-            Assert.AreSame(mockLogger.Object, serviceMonitor._logger);
+            mockEmailService.Verify(e => e.SendMessageAsync(It.IsAny<MimeMessage>()), Times.Never);
+            mockLogger.Verify(
+                l => l.Log(
+                    LogLevel.Information,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("is reachable")),
+                    null,
+                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+                Times.Once);
         }
 
         /// <summary>
-        /// Tests that the constructor accepts and assigns null for the logger parameter.
-        /// This documents behavior when nullability contract is violated, though no explicit validation exists.
-        /// Input: valid options, null logger.
-        /// Expected: Constructor completes and assigns null to _logger field.
+        /// Tests that StartAsync sends alert and logs warning when HTTP response has unsuccessful status code.
+        /// Input: Single URL with unsuccessful HTTP response (404 Not Found).
+        /// Expected: Alert email sent with status code, warning logged.
         /// </summary>
         [TestMethod]
-        public void Constructor_WithNullLogger_AssignsNullToLoggerField()
+        [DataRow(HttpStatusCode.NotFound)]
+        [DataRow(HttpStatusCode.InternalServerError)]
+        [DataRow(HttpStatusCode.BadRequest)]
+        [DataRow(HttpStatusCode.Unauthorized)]
+        [DataRow(HttpStatusCode.ServiceUnavailable)]
+        public async Task StartAsync_UnsuccessfulHttpResponse_SendsAlertAndLogsWarning(HttpStatusCode statusCode)
         {
             // Arrange
-            var mockOptions = new Mock<IOptions<ServiceMonitorOptions>>();
-            ILogger<global::ServiceMonitor.Hosting.ServiceMonitor>? nullLogger = null;
+            var testUrl = "http://test.com";
+            var options = CreateOptions(new List<string> { testUrl }, 30);
+            var mockLogger = new Mock<ILogger<ServiceMonitor.Hosting.ServiceMonitor>>();
+            var mockEmailService = new Mock<IEmailService>();
+            var mockHttpMessageHandler = new Mock<HttpMessageHandler>();
+
+            mockHttpMessageHandler.Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(new HttpResponseMessage(statusCode));
+
+            var httpClient = new HttpClient(mockHttpMessageHandler.Object);
+            var mockHttpClientFactory = new Mock<IHttpClientFactory>();
+            mockHttpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+            var sut = new ServiceMonitor.Hosting.ServiceMonitor(options, mockLogger.Object, mockHttpClientFactory.Object, mockEmailService.Object);
 
             // Act
-            var serviceMonitor = new global::ServiceMonitor.Hosting.ServiceMonitor(mockOptions.Object, nullLogger!);
+            await sut.StartAsync(CancellationToken.None);
 
             // Assert
-            Assert.IsNotNull(serviceMonitor);
-            Assert.AreSame(mockOptions.Object, serviceMonitor._options);
-            Assert.IsNull(serviceMonitor._logger);
+            mockEmailService.Verify(
+                e => e.SendMessageAsync(It.Is<MimeMessage>(m =>
+                    m.Subject.Contains(testUrl) &&
+                    m.Body.ToString().Contains(statusCode.ToString()))),
+                Times.Once);
+            mockLogger.Verify(
+                l => l.Log(
+                    LogLevel.Warning,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains(statusCode.ToString())),
+                    null,
+                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+                Times.Once);
         }
 
         /// <summary>
-        /// Tests that the constructor accepts and assigns null for both parameters.
-        /// This documents behavior when nullability contract is violated for both parameters.
-        /// Input: null options, null logger.
-        /// Expected: Constructor completes and assigns null to both fields.
+        /// Tests that StartAsync sends alert and logs error when HTTP request throws exception.
+        /// Input: Single URL where HTTP request throws HttpRequestException.
+        /// Expected: Alert email sent with exception message, error logged.
         /// </summary>
         [TestMethod]
-        public void Constructor_WithBothParametersNull_AssignsNullToBothFields()
+        public async Task StartAsync_HttpRequestThrowsException_SendsAlertAndLogsError()
         {
             // Arrange
-            IOptions<ServiceMonitorOptions>? nullOptions = null;
-            ILogger<global::ServiceMonitor.Hosting.ServiceMonitor>? nullLogger = null;
+            var testUrl = "http://test.com";
+            var exceptionMessage = "Network error occurred";
+            var options = CreateOptions(new List<string> { testUrl }, 30);
+            var mockLogger = new Mock<ILogger<ServiceMonitor.Hosting.ServiceMonitor>>();
+            var mockEmailService = new Mock<IEmailService>();
+            var mockHttpMessageHandler = new Mock<HttpMessageHandler>();
+
+            mockHttpMessageHandler.Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>())
+                .ThrowsAsync(new HttpRequestException(exceptionMessage));
+
+            var httpClient = new HttpClient(mockHttpMessageHandler.Object);
+            var mockHttpClientFactory = new Mock<IHttpClientFactory>();
+            mockHttpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+            var sut = new ServiceMonitor.Hosting.ServiceMonitor(options, mockLogger.Object, mockHttpClientFactory.Object, mockEmailService.Object);
 
             // Act
-            var serviceMonitor = new global::ServiceMonitor.Hosting.ServiceMonitor(nullOptions!, nullLogger!);
+            await sut.StartAsync(CancellationToken.None);
 
             // Assert
-            Assert.IsNotNull(serviceMonitor);
-            Assert.IsNull(serviceMonitor._options);
-            Assert.IsNull(serviceMonitor._logger);
+            mockEmailService.Verify(
+                e => e.SendMessageAsync(It.Is<MimeMessage>(m =>
+                    m.Subject.Contains(testUrl) &&
+                    m.Body.ToString().Contains(exceptionMessage))),
+                Times.Once);
+            mockLogger.Verify(
+                l => l.Log(
+                    LogLevel.Error,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("not reachable")),
+                    It.IsAny<Exception>(),
+                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+                Times.Once);
         }
 
         /// <summary>
-        /// Tests that StartAsync completes successfully when the URL list is empty.
-        /// This verifies that the method handles edge cases gracefully without throwing exceptions.
-        /// Expected: Method completes without errors and no HTTP requests or emails are sent.
+        /// Tests that StartAsync logs error but continues execution when email service fails.
+        /// Input: Single URL with unsuccessful response, email service throws exception.
+        /// Expected: Error logged for email failure, method completes without throwing.
         /// </summary>
         [TestMethod]
-        [TestCategory("ProductionBugSuspected")]
-        [Ignore("ProductionBugSuspected")]
-        public async Task StartAsync_WithEmptyUrlList_CompletesWithoutErrors()
+        public async Task StartAsync_EmailServiceFails_LogsErrorButContinues()
         {
             // Arrange
-            Mock<IOptions<ServiceMonitorOptions>> mockOptions = new();
-            Mock<ILogger<ServiceMonitor>> mockLogger = new();
+            var testUrl = "http://test.com";
+            var options = CreateOptions(new List<string> { testUrl }, 30);
+            var mockLogger = new Mock<ILogger<ServiceMonitor.Hosting.ServiceMonitor>>();
+            var mockEmailService = new Mock<IEmailService>();
+            var mockHttpMessageHandler = new Mock<HttpMessageHandler>();
 
-            ServiceMonitorOptions options = new()
-            {
-                Urls = new List<string>(),
-                TimeoutSeconds = 30,
-                Smtp = new SmtpOptions
+            mockHttpMessageHandler.Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.InternalServerError));
+
+            mockEmailService.Setup(e => e.SendMessageAsync(It.IsAny<MimeMessage>()))
+                .ThrowsAsync(new InvalidOperationException("SMTP connection failed"));
+
+            var httpClient = new HttpClient(mockHttpMessageHandler.Object);
+            var mockHttpClientFactory = new Mock<IHttpClientFactory>();
+            mockHttpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+            var sut = new ServiceMonitor.Hosting.ServiceMonitor(options, mockLogger.Object, mockHttpClientFactory.Object, mockEmailService.Object);
+
+            // Act
+            await sut.StartAsync(CancellationToken.None);
+
+            // Assert
+            mockLogger.Verify(
+                l => l.Log(
+                    LogLevel.Error,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Failed to send alert email")),
+                    It.IsAny<Exception>(),
+                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+                Times.Once);
+        }
+
+        /// <summary>
+        /// Tests that StartAsync completes successfully when URL list is empty.
+        /// Input: Empty URL list.
+        /// Expected: Method completes without errors, no HTTP requests or alerts.
+        /// </summary>
+        [TestMethod]
+        public async Task StartAsync_EmptyUrlList_CompletesWithoutError()
+        {
+            // Arrange
+            var options = CreateOptions(new List<string>(), 30);
+            var mockLogger = new Mock<ILogger<ServiceMonitor.Hosting.ServiceMonitor>>();
+            var mockEmailService = new Mock<IEmailService>();
+            var mockHttpMessageHandler = new Mock<HttpMessageHandler>();
+
+            var httpClient = new HttpClient(mockHttpMessageHandler.Object);
+            var mockHttpClientFactory = new Mock<IHttpClientFactory>();
+            mockHttpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+            var sut = new ServiceMonitor.Hosting.ServiceMonitor(options, mockLogger.Object, mockHttpClientFactory.Object, mockEmailService.Object);
+
+            // Act
+            await sut.StartAsync(CancellationToken.None);
+
+            // Assert
+            mockHttpMessageHandler.Protected().Verify(
+                "SendAsync",
+                Times.Never(),
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>());
+            mockEmailService.Verify(e => e.SendMessageAsync(It.IsAny<MimeMessage>()), Times.Never);
+        }
+
+        /// <summary>
+        /// Tests that StartAsync handles multiple URLs with different outcomes independently.
+        /// Input: Three URLs with success, failure, and exception respectively.
+        /// Expected: Each URL processed independently, appropriate actions taken for each.
+        /// </summary>
+        [TestMethod]
+        public async Task StartAsync_MultipleUrlsMixedResults_HandlesEachIndependently()
+        {
+            // Arrange
+            var urls = new List<string> { "http://success.com", "http://failure.com", "http://exception.com" };
+            var options = CreateOptions(urls, 30);
+            var mockLogger = new Mock<ILogger<ServiceMonitor.Hosting.ServiceMonitor>>();
+            var mockEmailService = new Mock<IEmailService>();
+            var mockHttpMessageHandler = new Mock<HttpMessageHandler>();
+
+            mockHttpMessageHandler.Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.Is<HttpRequestMessage>(req => req.RequestUri!.ToString() == "http://success.com/"),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
+
+            mockHttpMessageHandler.Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.Is<HttpRequestMessage>(req => req.RequestUri!.ToString() == "http://failure.com/"),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.InternalServerError));
+
+            mockHttpMessageHandler.Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.Is<HttpRequestMessage>(req => req.RequestUri!.ToString() == "http://exception.com/"),
+                    ItExpr.IsAny<CancellationToken>())
+                .ThrowsAsync(new HttpRequestException("Connection refused"));
+
+            var httpClient = new HttpClient(mockHttpMessageHandler.Object);
+            var mockHttpClientFactory = new Mock<IHttpClientFactory>();
+            mockHttpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+            var sut = new ServiceMonitor.Hosting.ServiceMonitor(options, mockLogger.Object, mockHttpClientFactory.Object, mockEmailService.Object);
+
+            // Act
+            await sut.StartAsync(CancellationToken.None);
+
+            // Assert
+            mockEmailService.Verify(e => e.SendMessageAsync(It.IsAny<MimeMessage>()), Times.Exactly(2));
+            mockLogger.Verify(
+                l => l.Log(
+                    LogLevel.Information,
+                    It.IsAny<EventId>(),
+                    It.IsAny<It.IsAnyType>(),
+                    null,
+                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+                Times.Once);
+            mockLogger.Verify(
+                l => l.Log(
+                    LogLevel.Warning,
+                    It.IsAny<EventId>(),
+                    It.IsAny<It.IsAnyType>(),
+                    null,
+                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+                Times.Once);
+            mockLogger.Verify(
+                l => l.Log(
+                    LogLevel.Error,
+                    It.IsAny<EventId>(),
+                    It.IsAny<It.IsAnyType>(),
+                    It.IsAny<Exception>(),
+                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+                Times.Once);
+        }
+
+        /// <summary>
+        /// Tests that StartAsync adds all recipients from configuration to alert email.
+        /// Input: Single URL with failure, multiple recipients in configuration.
+        /// Expected: Email sent with all recipients added.
+        /// </summary>
+        [TestMethod]
+        public async Task StartAsync_MultipleRecipients_AddsAllToEmail()
+        {
+            // Arrange
+            var testUrl = "http://test.com";
+            var recipients = new List<string> { "admin1@example.com", "admin2@example.com", "admin3@example.com" };
+            var options = CreateOptionsWithRecipients(new List<string> { testUrl }, 30, recipients);
+            var mockLogger = new Mock<ILogger<ServiceMonitor.Hosting.ServiceMonitor>>();
+            var mockEmailService = new Mock<IEmailService>();
+            var mockHttpMessageHandler = new Mock<HttpMessageHandler>();
+
+            mockHttpMessageHandler.Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.InternalServerError));
+
+            var httpClient = new HttpClient(mockHttpMessageHandler.Object);
+            var mockHttpClientFactory = new Mock<IHttpClientFactory>();
+            mockHttpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+            var sut = new ServiceMonitor.Hosting.ServiceMonitor(options, mockLogger.Object, mockHttpClientFactory.Object, mockEmailService.Object);
+
+            // Act
+            await sut.StartAsync(CancellationToken.None);
+
+            // Assert
+            mockEmailService.Verify(
+                e => e.SendMessageAsync(It.Is<MimeMessage>(m => m.To.Count == 3)),
+                Times.Once);
+        }
+
+        /// <summary>
+        /// Tests that StartAsync sends alert when HTTP request times out.
+        /// Input: Single URL where HTTP request throws TaskCanceledException (timeout).
+        /// Expected: Alert email sent, error logged.
+        /// </summary>
+        [TestMethod]
+        public async Task StartAsync_HttpRequestTimeout_SendsAlertAndLogsError()
+        {
+            // Arrange
+            var testUrl = "http://test.com";
+            var options = CreateOptions(new List<string> { testUrl }, 30);
+            var mockLogger = new Mock<ILogger<ServiceMonitor.Hosting.ServiceMonitor>>();
+            var mockEmailService = new Mock<IEmailService>();
+            var mockHttpMessageHandler = new Mock<HttpMessageHandler>();
+
+            mockHttpMessageHandler.Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>())
+                .ThrowsAsync(new TaskCanceledException("The request was canceled due to timeout"));
+
+            var httpClient = new HttpClient(mockHttpMessageHandler.Object);
+            var mockHttpClientFactory = new Mock<IHttpClientFactory>();
+            mockHttpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+            var sut = new ServiceMonitor.Hosting.ServiceMonitor(options, mockLogger.Object, mockHttpClientFactory.Object, mockEmailService.Object);
+
+            // Act
+            await sut.StartAsync(CancellationToken.None);
+
+            // Assert
+            mockEmailService.Verify(e => e.SendMessageAsync(It.IsAny<MimeMessage>()), Times.Once);
+            mockLogger.Verify(
+                l => l.Log(
+                    LogLevel.Error,
+                    It.IsAny<EventId>(),
+                    It.IsAny<It.IsAnyType>(),
+                    It.IsAny<Exception>(),
+                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+                Times.Once);
+        }
+
+        /// <summary>
+        /// Tests that StartAsync correctly sets HTTP client timeout from configuration.
+        /// Input: Timeout value of 60 seconds.
+        /// Expected: HttpClient timeout set to 60 seconds.
+        /// </summary>
+        [TestMethod]
+        [DataRow(1)]
+        [DataRow(30)]
+        [DataRow(60)]
+        [DataRow(300)]
+        public async Task StartAsync_VariousTimeoutValues_SetsHttpClientTimeout(int timeoutSeconds)
+        {
+            // Arrange
+            var options = CreateOptions(new List<string> { "http://test.com" }, timeoutSeconds);
+            var mockLogger = new Mock<ILogger<ServiceMonitor.Hosting.ServiceMonitor>>();
+            var mockEmailService = new Mock<IEmailService>();
+            var mockHttpMessageHandler = new Mock<HttpMessageHandler>();
+
+            mockHttpMessageHandler.Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK));
+
+            HttpClient? capturedClient = null;
+            var mockHttpClientFactory = new Mock<IHttpClientFactory>();
+            mockHttpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>()))
+                .Returns(() =>
                 {
-                    Server = "smtp.example.com",
+                    var client = new HttpClient(mockHttpMessageHandler.Object);
+                    capturedClient = client;
+                    return client;
+                });
+
+            var sut = new ServiceMonitor.Hosting.ServiceMonitor(options, mockLogger.Object, mockHttpClientFactory.Object, mockEmailService.Object);
+
+            // Act
+            await sut.StartAsync(CancellationToken.None);
+
+            // Assert
+            Assert.IsNotNull(capturedClient);
+            Assert.AreEqual(TimeSpan.FromSeconds(timeoutSeconds), capturedClient.Timeout);
+        }
+
+        /// <summary>
+        /// Tests that StartAsync creates correct alert email with expected subject and body.
+        /// Input: Single URL with failure.
+        /// Expected: Email has correct subject format and body content.
+        /// </summary>
+        [TestMethod]
+        public async Task StartAsync_AlertEmail_HasCorrectSubjectAndBody()
+        {
+            // Arrange
+            var testUrl = "http://test.com";
+            var options = CreateOptions(new List<string> { testUrl }, 30);
+            var mockLogger = new Mock<ILogger<ServiceMonitor.Hosting.ServiceMonitor>>();
+            MimeMessage? capturedEmail = null;
+            var mockEmailService = new Mock<IEmailService>();
+            mockEmailService.Setup(e => e.SendMessageAsync(It.IsAny<MimeMessage>()))
+                .Callback<MimeMessage>(msg => capturedEmail = msg)
+                .Returns(Task.CompletedTask);
+            var mockHttpMessageHandler = new Mock<HttpMessageHandler>();
+
+            mockHttpMessageHandler.Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.NotFound));
+
+            var httpClient = new HttpClient(mockHttpMessageHandler.Object);
+            var mockHttpClientFactory = new Mock<IHttpClientFactory>();
+            mockHttpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+            var sut = new ServiceMonitor.Hosting.ServiceMonitor(options, mockLogger.Object, mockHttpClientFactory.Object, mockEmailService.Object);
+
+            // Act
+            await sut.StartAsync(CancellationToken.None);
+
+            // Assert
+            Assert.IsNotNull(capturedEmail);
+            Assert.AreEqual($"Service not reachable: {testUrl}", capturedEmail.Subject);
+            Assert.IsTrue(capturedEmail.Body.ToString().Contains(testUrl));
+            Assert.IsTrue(capturedEmail.Body.ToString().Contains("not reachable"));
+        }
+
+        /// <summary>
+        /// Tests that StartAsync handles single recipient correctly.
+        /// Input: Single URL with failure, single recipient in configuration.
+        /// Expected: Email sent with one recipient.
+        /// </summary>
+        [TestMethod]
+        public async Task StartAsync_SingleRecipient_AddsOneToEmail()
+        {
+            // Arrange
+            var testUrl = "http://test.com";
+            var recipients = new List<string> { "admin@example.com" };
+            var options = CreateOptionsWithRecipients(new List<string> { testUrl }, 30, recipients);
+            var mockLogger = new Mock<ILogger<ServiceMonitor.Hosting.ServiceMonitor>>();
+            var mockEmailService = new Mock<IEmailService>();
+            var mockHttpMessageHandler = new Mock<HttpMessageHandler>();
+
+            mockHttpMessageHandler.Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.InternalServerError));
+
+            var httpClient = new HttpClient(mockHttpMessageHandler.Object);
+            var mockHttpClientFactory = new Mock<IHttpClientFactory>();
+            mockHttpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+            var sut = new ServiceMonitor.Hosting.ServiceMonitor(options, mockLogger.Object, mockHttpClientFactory.Object, mockEmailService.Object);
+
+            // Act
+            await sut.StartAsync(CancellationToken.None);
+
+            // Assert
+            mockEmailService.Verify(
+                e => e.SendMessageAsync(It.Is<MimeMessage>(m => m.To.Count == 1)),
+                Times.Once);
+        }
+
+        /// <summary>
+        /// Tests that StartAsync handles empty recipient list correctly.
+        /// Input: Single URL with failure, empty recipient list.
+        /// Expected: Email sent with no recipients added.
+        /// </summary>
+        [TestMethod]
+        public async Task StartAsync_EmptyRecipientList_SendsEmailWithNoRecipients()
+        {
+            // Arrange
+            var testUrl = "http://test.com";
+            var recipients = new List<string>();
+            var options = CreateOptionsWithRecipients(new List<string> { testUrl }, 30, recipients);
+            var mockLogger = new Mock<ILogger<ServiceMonitor.Hosting.ServiceMonitor>>();
+            var mockEmailService = new Mock<IEmailService>();
+            var mockHttpMessageHandler = new Mock<HttpMessageHandler>();
+
+            mockHttpMessageHandler.Protected()
+                .Setup<Task<HttpResponseMessage>>(
+                    "SendAsync",
+                    ItExpr.IsAny<HttpRequestMessage>(),
+                    ItExpr.IsAny<CancellationToken>())
+                .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.InternalServerError));
+
+            var httpClient = new HttpClient(mockHttpMessageHandler.Object);
+            var mockHttpClientFactory = new Mock<IHttpClientFactory>();
+            mockHttpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+            var sut = new ServiceMonitor.Hosting.ServiceMonitor(options, mockLogger.Object, mockHttpClientFactory.Object, mockEmailService.Object);
+
+            // Act
+            await sut.StartAsync(CancellationToken.None);
+
+            // Assert
+            mockEmailService.Verify(
+                e => e.SendMessageAsync(It.Is<MimeMessage>(m => m.To.Count == 0)),
+                Times.Once);
+        }
+
+        private static IOptions<ServiceMonitorOptions> CreateOptions(List<string> urls, int timeoutSeconds)
+        {
+            return CreateOptionsWithRecipients(urls, timeoutSeconds, new List<string> { "test@example.com" });
+        }
+
+        private static IOptions<ServiceMonitorOptions> CreateOptionsWithRecipients(List<string> urls, int timeoutSeconds, List<string> recipients)
+        {
+            var options = new ServiceMonitorOptions
+            {
+                Urls = urls,
+                TimeoutSeconds = timeoutSeconds,
+                EmailServer = new EmailOptions
+                {
+                    Host = "smtp.example.com",
                     Port = 587,
-                    UseSsl = true,
-                    From = "from@example.com",
-                    To = "to@example.com",
-                    Username = "user",
-                    Password = "pass"
+                    DefaultEmailAddress = "noreply@example.com",
+                    DefaultSenderName = "Service Monitor",
+                    To = recipients,
+                    User = "user",
+                    Password = "password"
                 }
             };
 
+            var mockOptions = new Mock<IOptions<ServiceMonitorOptions>>();
             mockOptions.Setup(o => o.Value).Returns(options);
-
-            ServiceMonitor sut = new(mockOptions.Object, mockLogger.Object);
-            CancellationToken cancellationToken = CancellationToken.None;
-
-            // Act
-            await sut.StartAsync(cancellationToken);
-
-            // Assert
-            // Method should complete without throwing exceptions
-            mockLogger.VerifyNoOtherCalls();
+            return mockOptions.Object;
         }
-
-        /// <summary>
-        /// [IGNORED - CANNOT BE TESTED WITH CURRENT DESIGN]
-        /// 
-        /// This test should verify that when an HTTP request returns a successful status code (2xx),
-        /// the method logs an informational message and does NOT send an alert email.
-        /// 
-        /// LIMITATION: HttpClient is instantiated directly within StartAsync using 'new HttpClient()',
-        /// and HttpClient.GetAsync() is not a virtual method. This makes it impossible to mock the
-        /// HTTP response without creating a custom fake or stub class, which is strictly prohibited.
-        /// 
-        /// REQUIRED REFACTORING: To test this scenario, inject IHttpClientFactory via constructor
-        /// and use it to create HttpClient instances. This would allow mocking the factory and
-        /// controlling the HttpClient behavior.
-        /// 
-        /// EXPECTED BEHAVIOR:
-        /// - Input: URL returns HTTP 200 OK
-        /// - Expected: Logger.LogInformation is called with "Service {Url} is reachable"
-        /// - Expected: Logger.LogWarning and SendAlert are NOT called
-        /// </summary>
-        [TestMethod]
-        [Ignore("ProductionBugSuspected")]
-        [TestCategory("ProductionBugSuspected")]
-        public async Task StartAsync_WithSuccessfulHttpResponse_LogsInformationOnly()
-        {
-            // This test cannot be implemented without:
-            // 1. Injecting IHttpClientFactory instead of creating HttpClient directly
-            // 2. Mocking the HttpClient behavior through the factory
-            //
-            // Current code creates HttpClient with: new HttpClient { Timeout = ... }
-            // which cannot be intercepted or mocked.
-
-            Assert.Inconclusive("Test cannot be implemented - see comments above");
-        }
-
-        /// <summary>
-        /// [IGNORED - CANNOT BE TESTED WITH CURRENT DESIGN]
-        /// 
-        /// This test should verify that when an HTTP request returns a non-success status code
-        /// (e.g., 404, 500, 503), the method sends an alert email and logs a warning.
-        /// 
-        /// LIMITATION: Same as StartAsync_WithSuccessfulHttpResponse_LogsInformationOnly.
-        /// HttpClient cannot be mocked with the current design.
-        /// 
-        /// EXPECTED BEHAVIOR:
-        /// - Input: URL returns HTTP 404 Not Found (or 500, 503, etc.)
-        /// - Expected: SendAlert is called with url and "Status: 404"
-        /// - Expected: Logger.LogWarning is called with status code
-        /// - Expected: Logger.LogInformation is still called (code always logs after response)
-        /// </summary>
-        [TestMethod]
-        [Ignore("ProductionBugSuspected")]
-        [TestCategory("ProductionBugSuspected")]
-        public async Task StartAsync_WithFailedHttpResponse_SendsAlertAndLogsWarning()
-        {
-            Assert.Inconclusive("Test cannot be implemented - see comments above");
-        }
-
-        /// <summary>
-        /// [IGNORED - CANNOT BE TESTED WITH CURRENT DESIGN]
-        /// 
-        /// This test should verify the SendAlert local function behavior when email sending succeeds.
-        /// 
-        /// LIMITATION: SmtpClient is instantiated directly within the SendAlert local function using
-        /// 'new SmtpClient()', and SmtpClient.SendMailAsync() is not a virtual method. This makes it
-        /// impossible to mock the email sending without creating a custom fake or stub class, which
-        /// is strictly prohibited.
-        /// 
-        /// REQUIRED REFACTORING: To test this scenario, inject an IEmailService abstraction via
-        /// constructor and use it instead of creating SmtpClient directly.
-        /// 
-        /// EXPECTED BEHAVIOR:
-        /// - Input: SendAlert is called with valid url and message
-        /// - Expected: MailMessage is created with correct subject and body (German text)
-        /// - Expected: SmtpClient is configured with correct SMTP settings
-        /// - Expected: Email is sent successfully
-        /// - Expected: No error is logged
-        /// </summary>
-        [TestMethod]
-        [Ignore("ProductionBugSuspected")]
-        [TestCategory("ProductionBugSuspected")]
-        public async Task SendAlert_WithValidParameters_SendsEmailSuccessfully()
-        {
-            Assert.Inconclusive("Test cannot be implemented - see comments above");
-        }
-
     }
 }

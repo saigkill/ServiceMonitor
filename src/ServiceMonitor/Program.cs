@@ -3,61 +3,52 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NLog.Extensions.Logging;
-using ServiceMonitor.AppConfig;
-using ServiceMonitor.Hosting;
+using ServiceMonitor.Presentation.DependencyInjection;
+using ServiceMonitor.Presentation.Hosting;
 
-namespace ServiceMonitor
+namespace ServiceMonitor;
+
+internal static class Program
 {
-	internal static class Program
-	{
-		static async Task Main(string[] args)
-		{
-			await Host.CreateDefaultBuilder(args)
-				.ConfigureAppConfiguration((context, services) =>
-				{
-					var configDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ServiceMonitor");
-					Directory.CreateDirectory(configDir);
-					var userConfigPath = Path.Join(configDir, "appsettings.user.json");
-					var defaultConfigPath = Path.Join(AppContext.BaseDirectory, "appsettings.json");
+    static async Task Main(string[] args)
+    {
+        await Host.CreateDefaultBuilder(args)
+            .ConfigureAppConfiguration(ConfigureApp)
+            .ConfigureServices((context, services) =>
+            {
+                //ConfigureLogging(services);
+                services.AddHostedService<ConsoleHostedService>();
+                services.AddServiceMonitoring(context.Configuration);
+            })
+            .ConfigureLogging(logging =>
+            {
+                logging.ClearProviders();
+                logging.AddNLog();
+            })
+            .RunConsoleAsync();
+    }
 
-					if (!File.Exists(userConfigPath))
-					{
-						if (File.Exists(defaultConfigPath))
-						{
-							var defaultJson = File.ReadAllText(defaultConfigPath);
-							File.WriteAllText(userConfigPath, defaultJson);
-						}
-						else
-						{
-							File.WriteAllText(userConfigPath, "{}");
-						}
-					}
+    private static void ConfigureApp(HostBuilderContext context, IConfigurationBuilder builder)
+    {
+        var configDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Saigkill", "ServiceMonitor");
+        Directory.CreateDirectory(configDir);
+        var userConfigPath = Path.Join(configDir, "appsettings.user.json");
+        var defaultConfigPath = Path.Join(AppContext.BaseDirectory, "appsettings.json");
 
-					services.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
-					services.AddJsonFile(userConfigPath, optional: true, reloadOnChange: true);
+        if (!File.Exists(userConfigPath))
+        {
+            if (File.Exists(defaultConfigPath))
+            {
+                var defaultJson = File.ReadAllText(defaultConfigPath);
+                File.WriteAllText(userConfigPath, defaultJson);
+            }
+            else
+            {
+                File.WriteAllText(userConfigPath, "{}");
+            }
+        }
 
-					services.AddCommandLine(args);
-				})
-				.ConfigureServices((hostContext, services) =>
-				{
-					var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-					var logDir = Path.Combine(baseDir, "ServiceMonitor", "logs");
-					Directory.CreateDirectory(logDir);
-					NLog.LogManager.Configuration!.Variables["logDir"] = logDir;
-
-					services.AddHostedService<ConsoleHostedService>();
-					services.AddOptions<ServiceMonitorOptions>()
-						.Bind(hostContext.Configuration)
-						.ValidateDataAnnotations()
-						.ValidateOnStart();
-					services.AddSingleton<ServiceMonitor.Hosting.ServiceMonitor>();
-				})
-				.ConfigureLogging(logging =>
-				{
-					logging.ClearProviders();
-					logging.AddNLog();
-				})
-				.RunConsoleAsync();
-		}
-	}
+        builder.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+        builder.AddJsonFile(userConfigPath, optional: true, reloadOnChange: true);
+    }
 }

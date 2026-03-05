@@ -39,7 +39,7 @@ File a bug report [on Github](https://github.com/saigkill/ServiceMonitor/issues)
 
 ### Requirements
 
-* .NET 9 Runtime
+* .NET 10 Runtime
 * Write access to the log directory
 * SMTP server access (optional, only needed for notifications)
 
@@ -93,22 +93,22 @@ sudo rpm -i servicemonitor-$(Version)-1.x86_64.rpm
 ServiceMonitor uses a JSON configuration file. Below is an example configuration:
 ```json
 {
-	"Urls": [
-		"https://saschamanns.de"
+  "Urls": [
+    ""    
+  ],
+  "EmailServer": {
+    "Host": "",
+    "Port": 587,    
+    "DefaultEmailAddress": "",
+    "DefaultSenderName": "",
+    "User": "",
+    "Password": "",
+	"To":[
+		""
 	],
-	"Smtp": {
-		"Server": "",
-		"Port": 587,
-		"UseSsl": true,
-		"From": "",
-		"To": "",
-		"Username": "",
-		"Password": ""
-	},
-	"TimeoutSeconds": 5,
-	"Logging": {
-		"LogDirectory": ""
-	}
+    "UseSSL": true
+  },
+  "TimeoutSeconds": 5
 }
 ```
 
@@ -117,8 +117,8 @@ ServiceMonitor uses a JSON configuration file. Below is an example configuration
 ServiceMonitor is developed cross‑platform and can be configured using a JSON file. After the first start, a appsettings.user.json file will be created and then it fails.
 The configuration file is on one of the following paths:
 
-* Linux: /home/Username/.config/ServiceMonitor
-* Windows: C:\Users\Username\AppData\Local
+* Linux: /home/Username/.local/share/Saigkill/ServiceMonitor
+* Windows: C:\Users\Username\AppData\Local\Saigkill\ServiceMonitor 
 
 
 ### Options Classes
