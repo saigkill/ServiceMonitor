@@ -1,16 +1,13 @@
 using Ardalis.GuardClauses;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using MimeKit;
 using Saigkill.Toolbox.Services;
 using ServiceMonitor.Application.Interfaces;
-using ServiceMonitor.Infrastructure.Configuration;
 
 namespace ServiceMonitor.Infrastructure.Email;
 
 public sealed class EmailAlertService(
     IEmailService emailService,
-    IOptions<ServiceMonitorOptions> options,
     ILogger<EmailAlertService> logger) : IAlertService
 {
     public async Task SendAlertAsync(
