@@ -8,7 +8,7 @@ namespace ServiceMonitor.Infrastructure.Configuration
 
         public EmailOptions EmailServer { get; set; } = new();
 
-        [Required] public int TimeoutSeconds { get; set; }
+        public System System { get; set; } = new();
     }
 
     public sealed class EmailOptions
@@ -17,13 +17,27 @@ namespace ServiceMonitor.Infrastructure.Configuration
 
         public int Port { get; set; }
 
-        [Required] public string DefaultEmailAddress { get; set; } = string.Empty;
+        [Required] public string DefaultEmailSenderAddress { get; set; } = string.Empty;
         [Required] public string DefaultSenderName { get; set; } = string.Empty;
 
         [Required] public List<string> To { get; set; } = new();
 
-        [Required] public string User { get; set; } = string.Empty;
+        [Required] public string Username { get; set; } = string.Empty;
 
         [Required] public string Password { get; set; } = string.Empty;
+    }
+
+    public sealed class System
+    {
+        [Required] public int TimeoutSeconds { get; set; }
+        [Required] public RunMode RunMode { get; set; } = RunMode.Daemon;
+        [Required] public int DaemonIntervalMinutes { get; set; } = 5;
+        [Required] public int WebUiPort { get; set; } = 8080;
+    }
+
+    public enum RunMode
+    {
+        Once,
+        Daemon
     }
 }

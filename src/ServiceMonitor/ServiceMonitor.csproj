@@ -23,11 +23,15 @@ The focus is on robustness, simplicity, and clean extensibility.</Description>
   </PropertyGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+    
+  <ItemGroup>
     <PackageReference Include="Ardalis.GuardClauses" Version="5.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Server.Kestrel" Version="2.3.9" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.3" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.3" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.3" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.3" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.3" />
     <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.3" />
@@ -46,7 +50,17 @@ The focus is on robustness, simplicity, and clean extensibility.</Description>
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="wwwroot\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="ServiceMonitor.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="wwwroot\images\" />
   </ItemGroup>
 
 </Project>

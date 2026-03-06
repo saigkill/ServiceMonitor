@@ -17,7 +17,7 @@ public sealed class HttpHealthMonitoringService(
         Guard.Against.Null(serviceUrls, nameof(serviceUrls));
         Guard.Against.Null(httpClientFactory, nameof(httpClientFactory));
         using var httpClient = httpClientFactory.CreateClient();
-        httpClient.Timeout = TimeSpan.FromSeconds(options.Value.TimeoutSeconds);
+        httpClient.Timeout = TimeSpan.FromSeconds(options.Value.System.TimeoutSeconds);
 
         var tasks = serviceUrls.Select(url => CheckServiceAsync(httpClient, url, cancellationToken));
         return await Task.WhenAll(tasks);
