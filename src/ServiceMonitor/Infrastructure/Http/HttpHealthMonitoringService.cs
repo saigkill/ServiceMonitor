@@ -14,8 +14,8 @@ public sealed class HttpHealthMonitoringService(
         IEnumerable<Uri> serviceUrls,
         CancellationToken cancellationToken)
     {
-        Guard.Against.Null(serviceUrls, nameof(serviceUrls));
-        Guard.Against.Null(httpClientFactory, nameof(httpClientFactory));
+        Guard.Against.Null(serviceUrls);
+        Guard.Against.Null(httpClientFactory);
         using var httpClient = httpClientFactory.CreateClient();
         httpClient.Timeout = TimeSpan.FromSeconds(options.Value.System.TimeoutSeconds);
 
@@ -28,8 +28,8 @@ public sealed class HttpHealthMonitoringService(
         Uri url,
         CancellationToken cancellationToken)
     {
-        Guard.Against.Null(client, nameof(client));
-        Guard.Against.Null(url, nameof(url));
+        Guard.Against.Null(client);
+        Guard.Against.Null(url);
         try
         {
             var response = await client.GetAsync(url, cancellationToken);

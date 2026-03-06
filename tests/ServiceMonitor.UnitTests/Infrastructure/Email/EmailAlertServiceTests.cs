@@ -1,16 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MimeKit;
 using Moq;
 using Saigkill.Toolbox.Services;
 using ServiceMonitor.Infrastructure.Configuration;
-using ServiceMonitor.Infrastructure.Email;
 
 
 namespace ServiceMonitor.Infrastructure.Email.UnitTests;
@@ -29,10 +22,8 @@ public sealed class EmailAlertServiceTests
     {
         // Arrange
         var mockEmailService = new Mock<IEmailService>();
-        var mockOptions = new Mock<IOptions<ServiceMonitorOptions>>();
-        mockOptions.Setup(o => o.Value).Returns(new ServiceMonitorOptions());
         var mockLogger = new Mock<ILogger<EmailAlertService>>();
-        var service = new EmailAlertService(mockEmailService.Object, mockOptions.Object, mockLogger.Object);
+        var service = new EmailAlertService(mockEmailService.Object, mockLogger.Object);
         var serviceUrl = new Uri("https://example.com");
         var errorMessage = "Service is down";
         var recipients = new List<string> { "test@example.com" };
@@ -53,8 +44,8 @@ public sealed class EmailAlertServiceTests
         Assert.IsTrue(capturedMessage.To.Any(addr => addr.ToString().Contains("test@example.com")));
         var textPart = capturedMessage.Body as TextPart;
         Assert.IsNotNull(textPart);
-        Assert.IsTrue(textPart.Text.Contains(serviceUrl.ToString()));
-        Assert.IsTrue(textPart.Text.Contains(errorMessage));
+        Assert.Contains(serviceUrl.ToString(), textPart.Text);
+        Assert.Contains(errorMessage, textPart.Text);
     }
 
     /// <summary>
@@ -65,10 +56,8 @@ public sealed class EmailAlertServiceTests
     {
         // Arrange
         var mockEmailService = new Mock<IEmailService>();
-        var mockOptions = new Mock<IOptions<ServiceMonitorOptions>>();
-        mockOptions.Setup(o => o.Value).Returns(new ServiceMonitorOptions());
         var mockLogger = new Mock<ILogger<EmailAlertService>>();
-        var service = new EmailAlertService(mockEmailService.Object, mockOptions.Object, mockLogger.Object);
+        var service = new EmailAlertService(mockEmailService.Object, mockLogger.Object);
         var serviceUrl = new Uri("https://example.com");
         var errorMessage = "Service is down";
         var recipients = new List<string> { "test1@example.com", "test2@example.com", "test3@example.com" };
@@ -98,10 +87,8 @@ public sealed class EmailAlertServiceTests
     {
         // Arrange
         var mockEmailService = new Mock<IEmailService>();
-        var mockOptions = new Mock<IOptions<ServiceMonitorOptions>>();
-        mockOptions.Setup(o => o.Value).Returns(new ServiceMonitorOptions());
         var mockLogger = new Mock<ILogger<EmailAlertService>>();
-        var service = new EmailAlertService(mockEmailService.Object, mockOptions.Object, mockLogger.Object);
+        var service = new EmailAlertService(mockEmailService.Object, mockLogger.Object);
         var serviceUrl = new Uri("https://example.com");
         var errorMessage = "Service is down";
         var recipients = new List<string>();
@@ -128,10 +115,8 @@ public sealed class EmailAlertServiceTests
     {
         // Arrange
         var mockEmailService = new Mock<IEmailService>();
-        var mockOptions = new Mock<IOptions<ServiceMonitorOptions>>();
-        mockOptions.Setup(o => o.Value).Returns(new ServiceMonitorOptions());
         var mockLogger = new Mock<ILogger<EmailAlertService>>();
-        var service = new EmailAlertService(mockEmailService.Object, mockOptions.Object, mockLogger.Object);
+        var service = new EmailAlertService(mockEmailService.Object, mockLogger.Object);
         var serviceUrl = new Uri("https://example.com");
         var errorMessage = "Service is down";
         var recipients = new List<string> { "test@example.com" };
@@ -162,10 +147,8 @@ public sealed class EmailAlertServiceTests
     {
         // Arrange
         var mockEmailService = new Mock<IEmailService>();
-        var mockOptions = new Mock<IOptions<ServiceMonitorOptions>>();
-        mockOptions.Setup(o => o.Value).Returns(new ServiceMonitorOptions());
         var mockLogger = new Mock<ILogger<EmailAlertService>>();
-        var service = new EmailAlertService(mockEmailService.Object, mockOptions.Object, mockLogger.Object);
+        var service = new EmailAlertService(mockEmailService.Object, mockLogger.Object);
         var serviceUrl = new Uri("https://example.com");
         var errorMessage = "Error: <html>&\"special\"</html> characters\nand\nnewlines\ttabs";
         var recipients = new List<string> { "test@example.com" };
@@ -183,7 +166,7 @@ public sealed class EmailAlertServiceTests
         Assert.IsNotNull(capturedMessage);
         var textPart = capturedMessage.Body as TextPart;
         Assert.IsNotNull(textPart);
-        Assert.IsTrue(textPart.Text.Contains(errorMessage));
+        Assert.Contains(errorMessage, textPart.Text);
     }
 
     /// <summary>
@@ -195,9 +178,8 @@ public sealed class EmailAlertServiceTests
         // Arrange
         var mockEmailService = new Mock<IEmailService>();
         var mockOptions = new Mock<IOptions<ServiceMonitorOptions>>();
-        mockOptions.Setup(o => o.Value).Returns(new ServiceMonitorOptions());
         var mockLogger = new Mock<ILogger<EmailAlertService>>();
-        var service = new EmailAlertService(mockEmailService.Object, mockOptions.Object, mockLogger.Object);
+        var service = new EmailAlertService(mockEmailService.Object, mockLogger.Object);
         var serviceUrl = new Uri("https://example.com");
         var errorMessage = new string('A', 10000);
         var recipients = new List<string> { "test@example.com" };
@@ -215,6 +197,6 @@ public sealed class EmailAlertServiceTests
         Assert.IsNotNull(capturedMessage);
         var textPart = capturedMessage.Body as TextPart;
         Assert.IsNotNull(textPart);
-        Assert.IsTrue(textPart.Text.Contains(errorMessage));
+        Assert.Contains(errorMessage, textPart.Text);
     }
 }

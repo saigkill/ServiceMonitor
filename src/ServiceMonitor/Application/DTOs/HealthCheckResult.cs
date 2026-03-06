@@ -41,8 +41,8 @@ public sealed class HealthCheckResult
     /// <returns>A healthy health check result.</returns>
     public static HealthCheckResult Healthy(Uri serviceUrl, HttpStatusCode statusCode)
     {
-        Guard.Against.Null(serviceUrl, nameof(serviceUrl));
-        Guard.Against.NegativeOrZero((int)statusCode, nameof(statusCode), "Status code must be a valid HTTP success code.");
+        Guard.Against.Null(serviceUrl);
+        Guard.Against.NegativeOrZero((int)statusCode, "Status code must be a valid HTTP success code.");
         return new HealthCheckResult
         {
             ServiceUrl = serviceUrl,
@@ -62,8 +62,8 @@ public sealed class HealthCheckResult
     /// <returns>An unhealthy health check result.</returns>
     public static HealthCheckResult Unhealthy(Uri serviceUrl, string errorMessage, HttpStatusCode? statusCode = null)
     {
-        Guard.Against.Null(serviceUrl, nameof(serviceUrl));
-        Guard.Against.NullOrEmpty(errorMessage, nameof(errorMessage));
+        Guard.Against.Null(serviceUrl);
+        Guard.Against.NullOrEmpty(errorMessage);
 
         return new HealthCheckResult
         {

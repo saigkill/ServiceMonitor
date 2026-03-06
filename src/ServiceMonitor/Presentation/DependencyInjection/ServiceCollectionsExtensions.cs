@@ -30,7 +30,7 @@ public static class ServiceCollectionExtensions
 
         // Configuration
         var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var logDir = Path.Combine(baseDir, "Saigkill", "ServiceMonitor", "logs");
+        var logDir = Path.Join(baseDir, "Saigkill", "ServiceMonitor", "logs");
         Directory.CreateDirectory(logDir);
         NLog.LogManager.Configuration!.Variables["logDir"] = logDir;
 

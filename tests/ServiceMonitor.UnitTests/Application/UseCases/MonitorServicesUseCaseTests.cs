@@ -1,18 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using ServiceMonitor.Application.DTOs;
 using ServiceMonitor.Application.Interfaces;
-using ServiceMonitor.Application.UseCases;
 using ServiceMonitor.Infrastructure.Configuration;
-
 
 namespace ServiceMonitor.Application.UseCases.UnitTests;
 
@@ -331,7 +323,7 @@ public sealed class MonitorServicesUseCaseTests
         var urls = new List<string> { "https://example.com" };
         var options = CreateOptions(urls, new List<string> { "admin@example.com" });
 
-        var cancellationTokenSource = new CancellationTokenSource();
+        using var cancellationTokenSource = new CancellationTokenSource();
         var cancellationToken = cancellationTokenSource.Token;
 
         healthMonitoringMock
@@ -370,7 +362,7 @@ public sealed class MonitorServicesUseCaseTests
         var recipients = new List<string> { "admin@example.com" };
         var options = CreateOptions(urls, recipients);
 
-        var cancellationTokenSource = new CancellationTokenSource();
+        using var cancellationTokenSource = new CancellationTokenSource();
         var cancellationToken = cancellationTokenSource.Token;
 
         var serviceUrl = new Uri("https://example.com");
@@ -434,7 +426,7 @@ public sealed class MonitorServicesUseCaseTests
         // Assert
         Assert.IsNotNull(capturedUris);
         var uriList = capturedUris.ToList();
-        Assert.AreEqual(2, uriList.Count);
+        Assert.HasCount(2, uriList);
         Assert.AreEqual("https://example1.com/", uriList[0].ToString());
         Assert.AreEqual("https://example2.com/path", uriList[1].ToString());
     }

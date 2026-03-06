@@ -17,17 +17,15 @@ namespace ServiceMonitor.Presentation.Hosting
         {
             try
             {
-                logger.LogInformation("Running the App.");
                 var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Production";
-                logger.LogInformation($"Starting Pipeline in Profile '{environment}'");
 
                 if (options.Value.System.RunMode == RunMode.Once)
                 {
                     await monitorServiceUseCase.ExecuteAsync(cancellationToken);
-                    Console.WriteLine("The app stops directly after execution. This means, that you maybe have enough time to change the config via Web UI. So better use Daemon Mode for changes.");
                     return;
                 }
-                logger.LogInformation("Starting in Daemon-Modus. Interval: " + $"{options.Value.System.DaemonIntervalMinutes} Minutes");
+
+                logger.LogInformation("Starting in Daemon-Modus. Interval: {DaemonIntervalMinutes} Minutes. Profile '{env}'", options.Value.System.DaemonIntervalMinutes, environment);
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     try

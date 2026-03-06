@@ -60,6 +60,7 @@ The focus is on robustness, simplicity, and clean extensibility.</Description>
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Domain\Entities\" />
     <Folder Include="wwwroot\images\" />
   </ItemGroup>
 

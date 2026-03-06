@@ -16,9 +16,9 @@ public sealed class EmailAlertService(
         IEnumerable<string> recipients,
         CancellationToken cancellationToken)
     {
-        Guard.Against.Null(serviceUrl, nameof(serviceUrl));
-        Guard.Against.NullOrWhiteSpace(errorMessage, nameof(errorMessage));
-        Guard.Against.Null(recipients, nameof(recipients));
+        Guard.Against.Null(serviceUrl);
+        Guard.Against.NullOrWhiteSpace(errorMessage);
+        Guard.Against.Null(recipients);
 
         var email = new MimeMessage
         {
