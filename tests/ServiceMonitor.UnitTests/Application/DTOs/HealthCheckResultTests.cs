@@ -202,7 +202,7 @@ public sealed class HealthCheckResultTests
         // Assert
         var afterCall = DateTime.UtcNow;
         var timeDifference = afterCall - beforeCall;
-        Assert.IsLessThan(timeDifference.TotalSeconds, 1,
+        Assert.IsLessThan(1, timeDifference.TotalSeconds,
             "CheckedAt should be set within 1 second of the method call");
         Assert.IsTrue(result.CheckedAt >= beforeCall && result.CheckedAt <= afterCall,
             $"CheckedAt should be between {beforeCall} and {afterCall}, but was {result.CheckedAt}");

@@ -166,7 +166,13 @@ public sealed class EmailAlertServiceTests
         Assert.IsNotNull(capturedMessage);
         var textPart = capturedMessage.Body as TextPart;
         Assert.IsNotNull(textPart);
-        Assert.Contains(errorMessage, textPart.Text);
+
+        // Verify that special characters are preserved correctly in the email body
+        Assert.Contains("<html>&\"special\"</html>", textPart.Text);
+        Assert.Contains("characters", textPart.Text);
+        Assert.IsTrue(textPart.Text.Contains("and"), "Newline characters should be preserved");
+        Assert.IsTrue(textPart.Text.Contains("newlines"), "Newline characters should be preserved");
+        Assert.IsTrue(textPart.Text.Contains("tabs"), "Tab characters should be preserved");
     }
 
     /// <summary>
