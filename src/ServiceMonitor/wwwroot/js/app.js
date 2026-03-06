@@ -151,15 +151,15 @@ function collectFormData() {
 
     return {
         system: {
-            timeoutSeconds: parseInt(document.getElementById('timeoutSeconds').value),
-            daemonIntervalMinutes: parseInt(document.getElementById('daemonIntervalMinutes').value),
-            webUiPort: parseInt(document.getElementById('webUiPort').value),
+            timeoutSeconds: Number.parseInt(document.getElementById('timeoutSeconds').value),
+            daemonIntervalMinutes: Number.parseInt(document.getElementById('daemonIntervalMinutes').value),
+            webUiPort: Number.parseInt(document.getElementById('webUiPort').value),
             runMode: document.getElementById('runMode').value
         },
         urls: urls,
         emailServer: {
             host: document.getElementById('smtpHost').value.trim(),
-            port: parseInt(document.getElementById('smtpPort').value),
+            port: Number.parseInt(document.getElementById('smtpPort').value),
             username: document.getElementById('smtpUsername').value.trim(),
             password: document.getElementById('smtpPassword').value.trim(),
             defaultEmailSenderAddress: document.getElementById('smtpFromEmail').value.trim(),

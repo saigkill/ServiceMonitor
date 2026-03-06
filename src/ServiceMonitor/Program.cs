@@ -27,6 +27,13 @@ internal static class Program
 
     private static readonly string UserConfigPath = Path.Join(ConfigDir, "appsettings.user.json");
 
+    private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
+    {
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+    };
+
     static async Task Main(string[] args)
     {
         var isFirstRun = !File.Exists(UserConfigPath);
@@ -72,24 +79,12 @@ internal static class Program
                     {
                         endpoints.MapGet("/api/config",
                             (IOptions<ServiceMonitorOptions> options) =>
-                                Results.Json(options.Value, new JsonSerializerOptions
-                                {
-                                    PropertyNameCaseInsensitive = true,
-                                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                                    Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
-                                }));
+                                Results.Json(options.Value, JsonOptions));
 
                         endpoints.MapPost("/api/config",
                             async (HttpContext ctx) =>
                             {
-                                var jsonOptions = new JsonSerializerOptions
-                                {
-                                    PropertyNameCaseInsensitive = true,
-                                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                                    Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
-                                };
-
-                                var newConfig = await ctx.Request.ReadFromJsonAsync<ServiceMonitorOptions>(jsonOptions);
+                                var newConfig = await ctx.Request.ReadFromJsonAsync<ServiceMonitorOptions>(JsonOptions);
 
                                 if (newConfig == null)
                                 {
@@ -200,7 +195,7 @@ internal static class Program
     {
         error = string.Empty;
 
-        if (config.Urls == null || !config.Urls.Any() || config.Urls.All(string.IsNullOrWhiteSpace))
+        if (config.Urls == null || config.Urls.Count < 1 || config.Urls.All(string.IsNullOrWhiteSpace))
         {
             error = "At least one URL must be configured.";
             return false;
@@ -218,7 +213,7 @@ internal static class Program
             return false;
         }
 
-        if (config.EmailServer.To == null || !config.EmailServer.To.Any() || config.EmailServer.To.All(string.IsNullOrWhiteSpace))
+        if (config.EmailServer.To == null || config.EmailServer.To.Count < 1 || config.EmailServer.To.All(string.IsNullOrWhiteSpace))
         {
             error = "At least one recipient email address is required.";
             return false;

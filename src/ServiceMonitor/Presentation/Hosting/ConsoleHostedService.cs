@@ -25,7 +25,7 @@ namespace ServiceMonitor.Presentation.Hosting
                     return;
                 }
 
-                logger.LogInformation("Starting in Daemon-Modus. Interval: {DaemonIntervalMinutes} Minutes. Profile '{env}'", options.Value.System.DaemonIntervalMinutes, environment);
+                logger.LogInformation("Starting in Daemon-Modus. Interval: {0} Minutes. Profile '{1}'", options.Value.System.DaemonIntervalMinutes, environment);
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     try

@@ -42,7 +42,7 @@ public sealed class HealthCheckResult
     public static HealthCheckResult Healthy(Uri serviceUrl, HttpStatusCode statusCode)
     {
         Guard.Against.Null(serviceUrl);
-        Guard.Against.NegativeOrZero((int)statusCode, "Status code must be a valid HTTP success code.");
+        Guard.Against.NegativeOrZero((int)statusCode);
         return new HealthCheckResult
         {
             ServiceUrl = serviceUrl,
