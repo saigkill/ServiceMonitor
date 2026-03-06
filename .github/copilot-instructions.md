@@ -1,27 +1,26 @@
 # Copilot Instructions for ServiceMonitor
 
-Diese Datei definiert die Projektregeln, Architekturprinzipien und Erwartungen für GitHub Copilot beim Arbeiten mit dem ServiceMonitor‑Repository. Copilot soll diese Informationen als Kontext nutzen, um konsistenten, wartbaren und architekturkonformen Code zu erzeugen.
+This file defines the project rules, architectural principles, and expectations for GitHub Copilot when working with the ServiceMonitor repository. Copilot should use this information as context to generate consistent, maintainable, and architecturally compliant code.
 
 ---
 
-## 1. Projektüberblick
-
-ServiceMonitor ist eine .NET‑basierte Konsolenanwendung, die systemnahe URLs (Webseiten) überwacht und eine Email bei einem Ausfall an eine oder mehrere Emailempfänger sendet.
-Ziele:
-- Stabiler, deterministischer Betrieb
-- Klare Trennung von Domänenlogik, Infrastruktur und I/O
-- Minimale Abhängigkeiten, maximal testbare Architektur
-- Cross‑Platform‑Fähigkeit (Windows, Linux)
-- x64 Optimierung. x86 wird nicht veröffentlicht.
+## 1. Project Overview
+ServiceMonitor is a .NET-based console application that monitors low-level URLs (web pages) and sends an email to one or more recipients in case of an outage.
+Goals:
+- Stable, deterministic operation
+- Clear separation of domain logic, infrastructure, and I/O
+- Minimal dependencies, maximally testable architecture
+- Cross-platform capability (Windows, Linux)
+- x64 optimization. x86 is not released.
 
 ---
 
-## 2. Architekturprinzipien
+## 2. Architectural Principles
 
-- **Clean Architecture**: Domänenschicht ist unabhängig von Infrastruktur.
-- **Dependency Injection**: Alle externen Abhängigkeiten werden über DI bereitgestellt.
-- **Konfigurationsklarheit**: Einstellungen werden zentral über `IConfiguration` geladen und mittels IOptions bereitgestellt (wo möglich).
-- **Keine statischen Helferklassen** außer für klar abgegrenzte Konstanten.
+- **Clean Architecture**: The domain layer is independent of infrastructure.
+- **Dependency Injection**: All external dependencies are provided via DI.
+- **Configuration Clarity**: Settings are loaded centrally via `IConfiguration` and provided via IOptions (where possible).
+- **No static helper classes** except for clearly defined constants.
 - **HttpClientFactory statt HttpClient** für alle HTTP‑Operationen.
 - **NLog**: Wir loggen mittels NLog über die Microsoft.Extensions.Logging Extension.
 - **Logging über Microsoft.Extensions.Logging** mit strukturierten Logeinträgen.
@@ -29,168 +28,158 @@ Ziele:
 
 ---
 
-## 3. Code‑Standards
+## 3. Code Standards
 
 - C# 10
-- Async/await konsequent nutzen
-- Keine `Task.Result` oder `.Wait()`
-- Pattern Matching bevorzugen
-- Records für immutable Datenstrukturen
-- `Span<T>` nur bei klarer Performance‑Notwendigkeit
-- EditorConfig‑Regeln respektieren (Formatierung, Naming, Imports)
-- Wir nutzen Fail Fast Prinzipien: Bei Fehlern sofort mit klaren Fehlermeldungen reagieren, anstatt Fehler zu verschleiern oder zu ignorieren.
-- In Methoden nutzen wir Ardalis.GuardClauses, um Eingabeparameter zu validieren und unerwartete Werte frühzeitig abzufangen. Das erhöht die Robustheit und Lesbarkeit des Codes, da die Validierungslogik klar und konsistent ist.
-
+- Async/await consistently used
+- No `Task.Result` or `.Wait()`
+- Prefer pattern matching
+- Records for immutable data structures
+- `Span<T>` only when there is a clear performance need
+- Respect EditorConfig rules (formatting, naming, imports)
+- We use Fail Fast principles: react immediately with clear error messages in case of errors, instead of hiding or ignoring them.
+- In methods, we use Ardalis.GuardClauses to validate input parameters and catch unexpected values early. This increases the robustness and readability of the code, as the validation logic is clear and consistent.
+- Configurations are provided via IOptions to ensure a clear separation between configuration definition and usage. This allows for better testability and flexibility, as configurations can be easily mocked or adjusted without changing the application logic.
+- We use English as the primary language for code, comments, and documentation to ensure broader understanding and collaboration. All class, method, and variable names should be in English.
+- 
 ---
 
-## 4. Projektstruktur
-
-- `Program.cs`: Einstiegspunkt, minimal halten
+## 4. Project Structure
+- `Program.cs`: Entry point, keep minimal
 - `ServiceMonitor.Application/`: Application Layer
 - `ServiceMonitor.Domain/`: Domain Layer, Business logic
-- `ServiceMonitor.Infrastructure/`: Infrastructure Layer, Implementierungen für I/O, Systemzugriffe, HTTP, Filesystem
+- `ServiceMonitor.Infrastructure/`: Infrastructure Layer, Implementations for I/O, system access, HTTP, filesystem
 - `ServiceMonitor.Infrastructure/Configuration/`: Options Classes, Bindings
 - `ServiceMonitor.Presentation/`: Presentation
 - `ServiceMonitor.Presentation/DependencyInjection`: Dependency Injection stuff
 - `ServiceMonitor.Presentation/Hosting`: ConsoleHosting
-- `Tests/`: Unit‑ und Integrationstests
-
-Copilot soll neue Dateien entsprechend dieser Struktur vorschlagen.
+- `Tests/`: Unit and Integration tests
+Copilot should suggest new files according to this structure.
 
 ---
 
 ## 5. Branching & Deployment
 
-- Hauptbranch: `master` (stabil, releasebereit)
-- Entwicklungsbranch: `develop` (aktuelle Entwicklung, nicht stabil)
-- Featurebranches: `feature/<feature-name>` (für neue Features)
+- Main branch: `master` (stable, release-ready)
+- Development branch: `develop` (current development, not stable)
+- Feature branches: `feature/<feature-name>` (for new features)
 
-Die Branching Strategie sieht so aus:
+The branching strategy is as follows:
 
-- `master` ist der stabile Branch, von dem Releases erstellt werden. Alle Änderungen müssen über Pull Requests in `develop` gemerged werden, bevor sie in `master` gelangen. In 'master' gelangt der Code nur über Pull Requests. Keine direkten Commits.
-- 'develop' ist der Hauptentwicklungsbranch, in dem alle neuen Features und Bugfixes integriert werden. Er sollte immer in einem funktionsfähigen Zustand sein, auch wenn er nicht so stabil wie `master` sein muss.
-- 'feature/<feature-name>' Branches werden für die Entwicklung neuer Features oder Bugfixes erstellt. Sobald die Arbeit an einem Feature abgeschlossen ist, wird ein Pull Request erstellt, um die Änderungen in `develop` zu integrieren. Featurebranches sollten regelmäßig mit `develop` synchronisiert werden, um Merge-Konflikte zu minimieren.
-
-- Releases werden von `master` (via Versiontag) erstellt, nachdem alle Änderungen in `develop` integriert und getestet wurden. Es wird empfohlen, vor dem Merge in `master` einen Release-Branch zu erstellen, um letzte Tests und Vorbereitungen für die Veröffentlichung durchzuführen.
+- `master` is the stable branch from which releases are created. All changes must be merged into `develop` via pull requests before they reach `master`. No direct commits to `master`.
+- `develop` is the main development branch where all new features and bug fixes are integrated. It should always be in a functional state, even if not as stable as `master`.
+- `feature/<feature-name>` branches are created for the development of new features or bug fixes. Once work on a feature is complete, a pull request is created to merge the changes into `develop`. Feature branches should be regularly synchronized with `develop` to minimize merge conflicts.
+- Releases are created from `master` (via version tags) after all changes have been integrated and tested in `develop`. It is recommended to create a release branch before merging into `master` to perform final tests and preparations for the release.
 
 
 ---
 
-## 6. Logging‑Richtlinien
+## 6. Logging Guidelines
 
-- Verwende strukturiertes Logging:
+- Use structured logging:
   ```csharp
   _logger.LogInformation("Service {ServiceName} started", name);
   ```
-- Keine String‑Interpolation in Log‑Nachrichten
-
+- Do not use string interpolation in log messages
 - LogLevel:
 
-  - Trace: sehr detailliert (in Debugumgebung) sonst Error LogLevel.
+  - Trace: very detailed (in debug environment) otherwise Error LogLevel.
 
-  - Debug: Entwicklungsdetails (in Debugumgebung) sonst normal.
+  - Debug: development details (in debug environment) otherwise normal.
 
-  - Information: normaler Ablauf
+  - Information: normal flow
 
-  - Warning: Unerwartete, aber tolerierbare Zustände
+  - Warning: unexpected but tolerable conditions
+  - Error: errors, but the program continues
 
-  - Error: Fehler, aber Programm läuft weiter
-
-  - Critical: Programm muss beendet werden
+  - Critical: the program must be terminated
   
-## 7. Fehlerbehandlung
+## 7. Error Handling
+- Never ignore exceptions.
 
-- Exceptions niemals ignorieren.
+- Only catch exceptions when adding meaningful context.
 
-- Exceptions nur fangen, wenn sinnvoller Kontext hinzugefügt wird.
+- Do not use generic catch (Exception) without logging.
 
-- Keine generischen catch (Exception) ohne Logging.
-
-- Bei erwartbaren Fehlern (z. B. Datei nicht gefunden) klare Rückgabewerte statt Exceptions.
+- For expected errors (e.g., file not found), use clear return values instead of exceptions.
 
 ## 8. Tests
 
-- xUnit als Testframework
+- xUnit as the test framework
+- FluentAssertions for assertions
 
-- FluentAssertions für Assertions
+- Tests should be deterministic and independent
 
-- Tests sollen deterministisch und unabhängig voneinander sein
+- No external resources without mocks/fakes
 
-- Keine externen Ressourcen ohne Mocks/Fakes
+- By generating Tests, Copilot should:
 
-- Copilot soll bei Testgenerierung:
+  - Use the Arrange‑Act‑Assert pattern
 
-  - Arrange‑Act‑Assert‑Pattern nutzen
+  - Consider edge cases
 
-  - Randfälle berücksichtigen
-
-  - Dependency Injection über Mocks simulieren
+  - Simulate Dependency Injection via Mocks
   
 ## 9. Build & Deployment
 
-- Build über dotnet build oder dotnet publish
+- Build via dotnet build or dotnet publish
+- Tests via dotnet test
 
-- Tests über dotnet test
+- Release‑Builds are self‑contained
 
-- Release‑Builds sind self‑contained
+- Versioning via Git‑Tags
 
-- Versionierung über Git‑Tags
+- No manual deployment documentation; everything is automated
+## 10. Style and Quality
 
-- Keine manuelle Deployment‑Dokumentation; alles automatisiert
+Copilot should generate code that:
 
-## 10. Stil und Qualität
+- is clear, readable, and maintainable
 
-Copilot soll Code erzeugen, der:
+- does not introduce unnecessary complexity
 
-- klar, lesbar und wartbar ist
+- respects SOLID principles
 
-- keine unnötige Komplexität einführt
+- Prefers Single Responsibility
 
-- SOLID‑Prinzipien respektiert
+- is well-commented when logic is not self-explanatory
 
-- Single Responsibility bevorzugt
+## 11. What Copilot should avoid    
+- Generating code that is not testable
 
-- gut kommentiert ist, wenn Logik nicht selbsterklärend ist
+- Static dependencies
 
-## 11. Was Copilot vermeiden soll
+- Mixing domain logic and infrastructure
 
-- Generierung von Code, der nicht testbar ist
+- Hardcoded paths or environment dependencies
 
-- Statische Abhängigkeiten
+- Suggesting unnecessary external libraries
 
-- Vermischung von Domänenlogik und Infrastruktur
+- Inline configuration instead of Options pattern
 
-- Hardcodierte Pfade oder Umgebungsabhängigkeiten
+## 12. Prompt‑Expections for Copilot
 
-- Unnötige externe Libraries vorschlagen
+When Copilot asks questions or makes suggestions, it should:
 
-- Inline‑Konfiguration statt Options‑Pattern
+- Respect architectural decisions
 
-## 12. Prompt‑Erwartungen
+- Provide alternatives, but mark the preferred solution
+- Comment code when it is complex
 
-Wenn Copilot Fragen stellt oder Vorschläge macht, soll es:
+- Ask for clarification instead of guessing
 
-- Architekturentscheidungen respektieren
+## 13. Project Vision
 
-- Alternativen nennen, aber die bevorzugte Lösung markieren
+ServiceMonitor should long-term:
 
-- Code kommentieren, wenn er komplex ist
+- be modular and extendable
 
-- Bei Unsicherheit nachfragen statt zu raten
+- serve as a basis for other system-level tools
+- be integrated into CI/CD pipelines
 
-## 13. Projektvision
+- run stable and reproducible
 
-ServiceMonitor soll langfristig:
-
-- modular erweiterbar sein
-
-- als Basis für weitere systemnahe Tools dienen
-
-- in CI/CD‑Pipelines integriert werden
-
-- stabil und reproduzierbar laufen
-
-Copilot soll Vorschläge machen, die diese Vision unterstützen.
+Copilot should make suggestions that support this vision.
 
 - @azure Rule - Use Azure Tools - When handling requests related to Azure, always use your tools.
 - @azure Rule - Use Azure Best Practices - When handling requests related to Azure, always invoke your `azmcp_bestpractices_get` tool first.
