@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -18,26 +20,47 @@ namespace ServiceMonitor;
 
 internal static class Program
 {
+    private static readonly string ConfigDir = Path.Join(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "Saigkill",
+        "ServiceMonitor");
+
+    private static readonly string UserConfigPath = Path.Join(ConfigDir, "appsettings.user.json");
+
     static async Task Main(string[] args)
     {
+        var isFirstRun = !File.Exists(UserConfigPath);
+
+        if (isFirstRun)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("╔════════════════════════════════════════════════════════════╗");
+            Console.WriteLine("║                   FIRST RUN DETECTED                       ║");
+            Console.WriteLine("╚════════════════════════════════════════════════════════════╝");
+            Console.ResetColor();
+            Console.WriteLine();
+            Console.WriteLine("ServiceMonitor needs to be configured before first use.");
+            Console.WriteLine("Opening configuration UI in your browser...");
+            Console.WriteLine();
+        }
+
         await Host.CreateDefaultBuilder(args)
             .ConfigureWebHostDefaults(webBuilder =>
             {
                 webBuilder.UseKestrel();
                 webBuilder.ConfigureAppConfiguration((hostingContext, config) =>
                 {
-                    // nichts nötig – nur damit wir hostingContext haben
+                    // Nothing needed - just to have hostingContext
                 });
 
                 webBuilder.Configure((context, app) =>
                 {
                     var port = context.Configuration["System:WebUiPort"] ?? "8080";
 
-                    // Korrekt: Adressen über IServerAddressesFeature setzen
+                    // Set addresses via IServerAddressesFeature
                     var addressesFeature = app.ServerFeatures.Get<IServerAddressesFeature>();
                     if (addressesFeature != null)
                     {
-                        // optional vorhandene Einträge entfernen
                         addressesFeature.Addresses.Clear();
                         addressesFeature.Addresses.Add($"http://*:{port}");
                     }
@@ -47,19 +70,17 @@ internal static class Program
 
                     app.UseEndpoints(endpoints =>
                     {
-                        var configDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Saigkill", "ServiceMonitor");
-                        Directory.CreateDirectory(configDir);
-                        var userConfigPath = Path.Join(configDir, "appsettings.user.json");
-
                         endpoints.MapGet("/api/config",
                             (IOptions<ServiceMonitorOptions> options) =>
                                 Results.Json(options.Value, new JsonSerializerOptions
                                 {
-                                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                                    PropertyNameCaseInsensitive = true,
+                                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                                    Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
                                 }));
 
                         endpoints.MapPost("/api/config",
-                            async (HttpContext context) =>
+                            async (HttpContext ctx) =>
                             {
                                 var jsonOptions = new JsonSerializerOptions
                                 {
@@ -68,11 +89,17 @@ internal static class Program
                                     Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
                                 };
 
-                                var newConfig = await context.Request.ReadFromJsonAsync<ServiceMonitorOptions>(jsonOptions);
+                                var newConfig = await ctx.Request.ReadFromJsonAsync<ServiceMonitorOptions>(jsonOptions);
 
                                 if (newConfig == null)
                                 {
                                     return Results.BadRequest("Invalid configuration data");
+                                }
+
+                                // Validate configuration
+                                if (!ValidateConfiguration(newConfig, out var validationError))
+                                {
+                                    return Results.BadRequest(validationError);
                                 }
 
                                 // Serialize with PascalCase for C# compatibility
@@ -81,24 +108,62 @@ internal static class Program
                                     WriteIndented = true,
                                     Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
                                 });
-                                await File.WriteAllTextAsync(userConfigPath, json);
+                                await File.WriteAllTextAsync(UserConfigPath, json);
 
-                                return Results.Ok();
+                                Console.ForegroundColor = ConsoleColor.Green;
+                                Console.WriteLine("✓ Configuration saved successfully!");
+                                Console.ResetColor();
+                                Console.WriteLine("Please restart ServiceMonitor for changes to take effect.");
+
+                                return Results.Ok(new { message = "Configuration saved. Please restart the application." });
                             });
+
+                        endpoints.MapGet("/api/status",
+                            () => Results.Ok(new
+                            {
+                                configured = File.Exists(UserConfigPath),
+                                version = "1.1.1"
+                            }));
                     });
+
+                    // Open browser on first run after app has started
+                    if (isFirstRun)
+                    {
+                        var lifetime = app.ApplicationServices.GetRequiredService<IHostApplicationLifetime>();
+                        lifetime.ApplicationStarted.Register(() =>
+                        {
+                            var url = $"http://localhost:{port}/index.html";
+                            Console.WriteLine($"Configuration UI available at: {url}");
+                            Console.WriteLine();
+                            OpenBrowser(url);
+                        });
+                    }
                 });
             })
             .ConfigureAppConfiguration(ConfigureApp)
             .ConfigureServices((context, services) =>
             {
-                services.AddHostedService<ConsoleHostedService>();
-                services.AddServiceMonitoring(context.Configuration);
+                // Only add monitoring service if configuration exists and is valid
+                if (!isFirstRun)
+                {
+                    services.AddHostedService<ConsoleHostedService>();
+                    services.AddServiceMonitoring(context.Configuration);
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine("Running in SETUP MODE - monitoring disabled until configured.");
+                    Console.ResetColor();
+                    Console.WriteLine("Press Ctrl+C to exit after configuration is complete.");
+                    Console.WriteLine();
+                }
 
                 // Configure JSON options for API endpoints
                 services.Configure<JsonOptions>(options =>
                 {
                     options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
                     options.SerializerOptions.PropertyNameCaseInsensitive = true;
+                    options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
                 });
             })
             .ConfigureLogging(logging =>
@@ -111,25 +176,78 @@ internal static class Program
 
     private static void ConfigureApp(HostBuilderContext context, IConfigurationBuilder builder)
     {
-        var configDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Saigkill", "ServiceMonitor");
-        Directory.CreateDirectory(configDir);
-        var userConfigPath = Path.Join(configDir, "appsettings.user.json");
+        Directory.CreateDirectory(ConfigDir);
         var defaultConfigPath = Path.Join(AppContext.BaseDirectory, "appsettings.json");
 
-        if (!File.Exists(userConfigPath))
+        if (!File.Exists(UserConfigPath))
         {
             if (File.Exists(defaultConfigPath))
             {
                 var defaultJson = File.ReadAllText(defaultConfigPath);
-                File.WriteAllText(userConfigPath, defaultJson);
+                File.WriteAllText(UserConfigPath, defaultJson);
             }
             else
             {
-                File.WriteAllText(userConfigPath, "{}");
+                File.WriteAllText(UserConfigPath, "{}");
             }
         }
 
         builder.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
-        builder.AddJsonFile(userConfigPath, optional: true, reloadOnChange: true);
+        builder.AddJsonFile(UserConfigPath, optional: true, reloadOnChange: true);
+    }
+
+    private static bool ValidateConfiguration(ServiceMonitorOptions config, out string error)
+    {
+        error = string.Empty;
+
+        if (config.Urls == null || !config.Urls.Any() || config.Urls.All(string.IsNullOrWhiteSpace))
+        {
+            error = "At least one URL must be configured.";
+            return false;
+        }
+
+        if (config.EmailServer == null)
+        {
+            error = "Email server configuration is required.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(config.EmailServer.Host))
+        {
+            error = "Email server host is required.";
+            return false;
+        }
+
+        if (config.EmailServer.To == null || !config.EmailServer.To.Any() || config.EmailServer.To.All(string.IsNullOrWhiteSpace))
+        {
+            error = "At least one recipient email address is required.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private static void OpenBrowser(string url)
+    {
+        try
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                Process.Start("xdg-open", url);
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                Process.Start("open", url);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Could not open browser automatically: {ex.Message}");
+            Console.WriteLine($"Please open {url} manually in your browser.");
+        }
     }
 }
