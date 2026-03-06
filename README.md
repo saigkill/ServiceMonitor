@@ -23,7 +23,10 @@ The focus is on robustness, simplicity, and clean extensibility.
 | Maintained                  | ![Maintained](https://img.shields.io/badge/Maintained-Yes-brightgreen)                                                                                                                                                   |
 | Blog                        | [![Blog](https://img.shields.io/badge/Blog-Saigkill-blue)](https://saschamanns.de)                                                                                                                                       |     
 
+<script type='text/javascript' src='https://openhub.net/p/SaigkillsServiceMonitor/widgets/project_factoids_stats?format=js'></script>
+
 File a bug report [on Github](https://github.com/saigkill/ServiceMonitor/issues).
+The documentation can be found in the [docs](https://moongladesm.blob.core.windows.net/docs/_ServiceMonitor/) directory.
 
 ## Features
 
@@ -35,177 +38,11 @@ File a bug report [on Github](https://github.com/saigkill/ServiceMonitor/issues)
 * Cross‑platform (Linux, Windows, Docker)
 * Ideal for self‑hosted services and NAS environments
 
-## Installation
-
-### Requirements
+## Requirements
 
 * .NET 10 Runtime
 * Write access to the log directory
 * SMTP server access (optional, only needed for notifications)
-
-### Deployment Option
-
-* On Windows
-* On Linux
-
-Download the latest release from the [Releases](https://github.com/saigkill/ServiceMonitor/releases).
-
-### Linux ZIP          
-``````bash
-# Download and extract
-zipFile="ServiceMonitor-${Version}-Linux.zip"
-url="https://github.com/saigkill/ServiceMonitor/releases/download/${tagName}/${zipFile}"
-
-echo "Downloading: $url"
-curl -L -o "$zipFile" "$url"
-
-echo "Extracting..."
-unzip -o "$zipFile" -d "/home/username"
-
-# Run
-cd /home/username
-dotnet ServiceMonitor.dll
-``````
-
-### Windows ZIP          
-``````powershell
-# Download and extract
-Invoke-WebRequest -Uri "https://github.com/saigkill/ServiceMonitor/releases/download/$tagName/ServiceMonitor-$(Version)-Windows.zip" -OutFile "ServiceMonitor-$(Version)-Windows.zip"
-Expand-Archive -Path "ServiceMonitor-$(Version)-Windows.zip" -DestinationPath "C:\Users\Username"
-          
-# Run
-cd /home/username
-dotnet ServiceMonitor.dll
-``````
-
-### Linux DEB (Experimental)
-``````bash
-sudo apt install servicemonitor_$(Version)_amd64.deb
-``````
-
-### Linux rpm (Experimental)
-``````bash
-sudo rpm -i servicemonitor-$(Version)-1.x86_64.rpm
-``````
-
-## Configuration
-
-ServiceMonitor uses a JSON configuration file. Below is an example configuration:
-```json
-{
-  "Urls": [
-    ""    
-  ],
-  "EmailServer": {
-    "Host": "",
-    "Port": 587,    
-    "DefaultEmailAddress": "",
-    "DefaultSenderName": "",
-    "User": "",
-    "Password": "",
-	"To":[
-		""
-	],
-    "UseSSL": true
-  },
-  "TimeoutSeconds": 5
-}
-```
-
-### Configuration File
-
-ServiceMonitor is developed cross‑platform and can be configured using a JSON file. After the first start, a appsettings.user.json file will be created and then it fails.
-The configuration file is on one of the following paths:
-
-* Linux: /home/Username/.local/share/Saigkill/ServiceMonitor
-* Windows: C:\Users\Username\AppData\Local\Saigkill\ServiceMonitor 
-
-
-### Options Classes
-
-Configuration is bound using the .NET Options Pattern:
-```csharp
-builder.Services.Configure<ServiceMonitorOptions>(
-    builder.Configuration.GetSection("ServiceMonitor"));
-
-```
-
-### Options Model
-```csharp
-public sealed class ServiceMonitorOptions
-{
-    public List<string> Urls { get; set; } = new();
-    public SmtpOptions Smtp { get; set; } = new();
-    public int TimeoutSeconds { get; set; }
-    public LoggingOptions Logging { get; set; } = new();
-}
-
-public sealed class SmtpOptions
-{
-    public string Server { get; set; } = string.Empty;
-    public int Port { get; set; }
-    public bool UseSsl { get; set; }
-    public string From { get; set; } = string.Empty;
-    public string To { get; set; } = string.Empty;
-    public string Username { get; set; } = string.Empty;
-    public string Password { get; set; } = string.Empty;
-}
-
-public sealed class LoggingOptions
-{
-    public string LogDirectory { get; set; } = string.Empty;
-}
-
-
-```
-
-## Logging
-
-ServiceMonitor writes structured log files to the configured directory.
-Logs include:
-
-* successful checks
-* failures and unreachable services
-* SMTP send attempts
-* exception details
-
-## SMTP Notifications
-
-When a monitored service becomes unreachable, ServiceMonitor sends an email containing:
-
-* the affected URL
-* the error status
-* timestamp
-* optional exception details
-
-Supported:
-
-* authenticated SMTP
-* SSL/TLS
-* ports 25/465/587
-
-## Running the Application
-
-### Direct Execution
-
-````bash
-dotnet ServiceMonitor.dll
-````
-
-### systemd Service Example
-
-````ini
-[Unit]
-Description=ServiceMonitor
-
-[Service]
-ExecStart=/usr/bin/dotnet /share/Multimedia/apps/ServiceMonitor/ServiceMonitor.dll
-WorkingDirectory=/share/Multimedia/apps/ServiceMonitor/
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-````
 
 ## Extensibility
 

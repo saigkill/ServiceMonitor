@@ -4,7 +4,7 @@
     {
       "src": [
         {
-          "src": "../src",
+          "src": "src",
           "files": [
             "**/*.csproj"
           ]
@@ -20,18 +20,19 @@
           "**/*.{md,yml}"
         ],
         "exclude": [
-          "_site/**"
+            "_ServiceMonitor/**",
+            "azure-pipelines.yml"
         ]
       }
     ],
     "resource": [
       {
         "files": [
-          "images/**"
+          "Assets/**"
         ]
       }
     ],
-    "output": "_site",
+    "output": "_ServiceMonitor",
     "template": [
       "default",
       "modern"
