@@ -41,8 +41,12 @@ Goals:
 - Respect EditorConfig rules (formatting, naming, imports)
 - We use Fail Fast principles: react immediately with clear error messages in case of errors, instead of hiding or ignoring them.
 - In methods, we use Ardalis.GuardClauses to validate input parameters and catch unexpected values early. This increases the robustness and readability of the code, as the validation logic is clear and consistent.
+- We are using Fluent Validation for complex validation scenarios, such as validating configuration objects or user input. This allows us to keep validation logic separate from business logic and provides a fluent API for defining validation rules.
+- We are using Meziantou.Analyzer, Roslynator.Analyzers and SonarAnalyzer.CSharp to enforce code quality and best practices. These analyzers help us identify potential issues, improve code readability, and maintain a consistent coding style across the project.
 - Configurations are provided via IOptions to ensure a clear separation between configuration definition and usage. This allows for better testability and flexibility, as configurations can be easily mocked or adjusted without changing the application logic.
 - We use English as the primary language for code, comments, and documentation to ensure broader understanding and collaboration. All class, method, and variable names should be in English.
+- We using a LINQ Select instead of a foreach loop if its possible.
+- We using CancellationToken in all async methods to allow for graceful shutdown and better resource management.
 
 ---
 
@@ -92,12 +96,16 @@ The branching strategy is as follows:
   - Error: errors, but the program continues
   - Critical: the program must be terminated
 
+---
+
 ## 7. Error Handling
 
 - Never ignore exceptions.
 - Only catch exceptions when adding meaningful context.
 - Do not use generic catch (Exception) without logging.
 - For expected errors (e.g., file not found), use clear return values instead of exceptions.
+
+---
 
 ## 8. Tests
 
@@ -110,6 +118,8 @@ The branching strategy is as follows:
   - Consider edge cases
   - Simulate Dependency Injection via Mocks
 
+---
+
 ## 9. Build & Deployment
 
 - Build via dotnet build or dotnet publish
@@ -117,6 +127,8 @@ The branching strategy is as follows:
 - Release‑Builds are self‑contained
 - Versioning via Git‑Tags
 - No manual deployment documentation; everything is automated
+
+---
 
 ## 10. Style and Quality
 
@@ -128,6 +140,8 @@ Copilot should generate code that:
 - Prefers Single Responsibility
 - is well-commented when logic is not self-explanatory
 
+---
+
 ## 11. What Copilot should avoid    
 
 - Generating code that is not testable
@@ -137,6 +151,8 @@ Copilot should generate code that:
 - Suggesting unnecessary external libraries
 - Inline configuration instead of Options pattern
 
+---
+
 ## 12. Prompt‑Expections for Copilot
 
 When Copilot asks questions or makes suggestions, it should:
@@ -145,6 +161,8 @@ When Copilot asks questions or makes suggestions, it should:
 - Provide alternatives, but mark the preferred solution
 - Comment code when it is complex
 - Ask for clarification instead of guessing
+
+---
 
 ## 13. Project Vision
 

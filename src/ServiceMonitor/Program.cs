@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -13,8 +12,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NLog.Extensions.Logging;
 using ServiceMonitor.Infrastructure.Configuration;
-using ServiceMonitor.Presentation.DependencyInjection;
-using ServiceMonitor.Presentation.Hosting;
+using ServiceMonitor.Infrastructure.Hosting;
 
 namespace ServiceMonitor;
 
@@ -23,7 +21,8 @@ internal static class Program
     private static readonly string ConfigDir = Path.Join(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "Saigkill",
-        "ServiceMonitor");
+        "ServiceMonitor",
+        "config");
 
     private static readonly string UserConfigPath = Path.Join(ConfigDir, "appsettings.user.json");
 
@@ -36,6 +35,7 @@ internal static class Program
 
     static async Task Main(string[] args)
     {
+        Console.WriteLine("UserConfigPath is {0}", UserConfigPath);
         var isFirstRun = !File.Exists(UserConfigPath);
 
         if (isFirstRun)
@@ -84,7 +84,7 @@ internal static class Program
                         endpoints.MapPost("/api/config",
                             async (HttpContext ctx) =>
                             {
-                                var newConfig = await ctx.Request.ReadFromJsonAsync<ServiceMonitorOptions>(JsonOptions);
+                                var newConfig = await ctx.Request.ReadFromJsonAsync<ServiceMonitorOptions>(JsonOptions).ConfigureAwait(false);
 
                                 if (newConfig == null)
                                 {
@@ -103,7 +103,7 @@ internal static class Program
                                     WriteIndented = true,
                                     Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
                                 });
-                                await File.WriteAllTextAsync(UserConfigPath, json);
+                                await File.WriteAllTextAsync(UserConfigPath, json).ConfigureAwait(false);
 
                                 Console.ForegroundColor = ConsoleColor.Green;
                                 Console.WriteLine("✓ Configuration saved successfully!");
@@ -166,7 +166,7 @@ internal static class Program
                 logging.ClearProviders();
                 logging.AddNLog();
             })
-            .RunConsoleAsync();
+            .RunConsoleAsync().ConfigureAwait(false);
     }
 
     private static void ConfigureApp(HostBuilderContext context, IConfigurationBuilder builder)
@@ -226,15 +226,15 @@ internal static class Program
     {
         try
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            if (OperatingSystem.IsWindows())
             {
                 Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
             }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            else if (OperatingSystem.IsLinux())
             {
                 Process.Start("xdg-open", url);
             }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            else if (OperatingSystem.IsIOS())
             {
                 Process.Start("open", url);
             }

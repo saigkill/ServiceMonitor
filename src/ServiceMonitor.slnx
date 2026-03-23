@@ -1,5 +1,8 @@
 <Solution>
   <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="DefaultBuild" />
+    <BuildType Name="Release" />
     <Platform Name="Any CPU" />
     <Platform Name="ARM" />
     <Platform Name="ARM64" />
@@ -7,12 +10,17 @@
     <Platform Name="x86" />
   </Configurations>
   <Project Path="../tests/ServiceMonitor.UnitTests/ServiceMonitor.UnitTests.csproj" Id="f27cdc9f-fe65-42e0-983a-bf25bd475361">
+    <BuildType Solution="DefaultBuild|*" Project="Release" />
     <Platform Solution="Debug|x64" Project="x64" />
+    <Platform Solution="DefaultBuild|x64" Project="x64" />
+  </Project>
+  <Project Path="ServiceManager.Package/ServiceManager.Package.aiproj" Type="840c416c-b8f3-42bc-b0dd-f6bb14c9f8cb" Id="32035416-438e-4645-a747-8a70a0e0257c">
+    <BuildType Project="DefaultBuild" />
+    <Platform Project="?" />
   </Project>
   <Project Path="ServiceMonitor/ServiceMonitor.csproj">
+    <BuildType Solution="DefaultBuild|*" Project="Release" />
     <Platform Solution="Debug|x64" Project="x64" />
-  </Project>
-  <Project Path="ServiceMonitorInstaller/ServiceMonitorInstaller.wapproj" Type="c7167f0d-bc9f-4e6e-afe1-012c56b48db5" Id="7a0dbd59-6a5a-4754-997c-598bfcbfba20">
-    <Deploy />
+    <Platform Solution="DefaultBuild|x64" Project="x64" />
   </Project>
 </Solution>

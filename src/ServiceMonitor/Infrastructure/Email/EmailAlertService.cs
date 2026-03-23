@@ -1,14 +1,14 @@
 using Ardalis.GuardClauses;
+using FluentEmail.Core;
+using FluentEmail.Core.Models;
 using Microsoft.Extensions.Logging;
-using MimeKit;
-using Saigkill.Toolbox.Services;
 using ServiceMonitor.Application.Interfaces;
 
 namespace ServiceMonitor.Infrastructure.Email;
 
 public sealed class EmailAlertService(
-    IEmailService emailService,
-    ILogger<EmailAlertService> logger) : IAlertService
+    ILogger<EmailAlertService> logger,
+    IFluentEmail fluentEmail) : IAlertService
 {
     public async Task SendAlertAsync(
         Uri serviceUrl,
@@ -20,27 +20,22 @@ public sealed class EmailAlertService(
         Guard.Against.NullOrWhiteSpace(errorMessage);
         Guard.Against.Null(recipients);
 
-        var email = new MimeMessage
-        {
-            Subject = $"Service not reachable: {serviceUrl}",
-            Body = new TextPart("plain")
-            {
-                Text = $"The service {serviceUrl} is not reachable.\n\nError: {errorMessage}"
-            }
-        };
-
-        foreach (var recipient in recipients)
-        {
-            email.To.Add(MailboxAddress.Parse(recipient));
-        }
+        var recipientsList = recipients.Select(url => new Address(url)).ToList();
 
         try
         {
-            await emailService.SendMessageAsync(email);
+            await fluentEmail.To(recipientsList)
+                .To(recipientsList)
+                .Subject($"Service not reachable: {serviceUrl}")
+                .Body($"The service {serviceUrl} is not reachable.\n\nError: {errorMessage}")
+                .SendAsync(cancellationToken).ConfigureAwait(false);
+
+            logger.LogInformation("Down-Email for {0} sent. Successful", serviceUrl);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to send alert email for service {Url}", serviceUrl);
+            logger.LogError(ex, "Error while sending downmail for {0}. Error: {1}", serviceUrl, ex.Message);
+            throw;
         }
     }
 }

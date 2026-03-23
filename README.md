@@ -1,9 +1,9 @@
 # ServiceMonitor
 
-![Logo](https://raw.githubusercontent.com/saigkill/ServiceMonitor/develop/Assets/service_monitor.png)
+![Logo](https://raw.githubusercontent.com/saigkill/ServiceMonitor/develop/Assets/icon.png)
 
 
-ServiceMonitor is a lightweight, configuration‑driven monitoring tool designed for Linux‑based systems (including QNAP NAS). 
+ServiceMonitor is a lightweight, configuration‑driven monitoring tool designed for cross platform systems (Linux, Windows).
 It periodically checks a list of URLs and sends SMTP notifications when services become unreachable or return error states. 
 The focus is on robustness, simplicity, and clean extensibility.
 
@@ -23,8 +23,6 @@ The focus is on robustness, simplicity, and clean extensibility.
 | Maintained                  | ![Maintained](https://img.shields.io/badge/Maintained-Yes-brightgreen)                                                                                                                                                   |
 | Blog                        | [![Blog](https://img.shields.io/badge/Blog-Saigkill-blue)](https://saschamanns.de)                                                                                                                                       |     
 
-<script type='text/javascript' src='https://openhub.net/p/SaigkillsServiceMonitor/widgets/project_factoids_stats?format=js'></script>
-
 File a bug report [on Github](https://github.com/saigkill/ServiceMonitor/issues).
 The documentation can be found in the [docs](https://moongladesm.blob.core.windows.net/docs/_ServiceMonitor/) directory.
 
@@ -40,7 +38,7 @@ The documentation can be found in the [docs](https://moongladesm.blob.core.windo
 
 ## Requirements
 
-* .NET 10 Runtime
+* .NET 9 Runtime
 * Write access to the log directory
 * SMTP server access (optional, only needed for notifications)
 

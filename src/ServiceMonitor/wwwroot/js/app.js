@@ -70,7 +70,7 @@ function populateForm(config) {
     if (config.emailServer) {
         document.getElementById('smtpHost').value = config.emailServer.host || '';
         document.getElementById('smtpPort').value = config.emailServer.port || 465;
-        document.getElementById('smtpUsername').value = config.emailServer.username || '';
+        document.getElementById('smtpUsername').value = config.emailServer.user || '';
         document.getElementById('smtpPassword').value = config.emailServer.password || '';
         document.getElementById('smtpFromEmail').value = config.emailServer.defaultEmailSenderAddress || '';
         document.getElementById('smtpFromUsername').value = config.emailServer.defaultSenderName || '';
@@ -160,7 +160,7 @@ function collectFormData() {
         emailServer: {
             host: document.getElementById('smtpHost').value.trim(),
             port: Number.parseInt(document.getElementById('smtpPort').value),
-            username: document.getElementById('smtpUsername').value.trim(),
+            user: document.getElementById('smtpUsername').value.trim(),
             password: document.getElementById('smtpPassword').value.trim(),
             defaultEmailSenderAddress: document.getElementById('smtpFromEmail').value.trim(),
             defaultSenderName: document.getElementById('smtpFromUsername').value.trim(),

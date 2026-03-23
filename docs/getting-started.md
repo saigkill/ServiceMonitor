@@ -77,7 +77,7 @@ WantedBy=multi-user.target
 
 ### Configuration
 
-After the first start, the app launches the Configurator on http://localhost:17700/index.html. Follow the instructions to set up your monitoring preferences, including selecting services to monitor and configuring email notifications.
+After the first start, the app launches the Configurator on http://localhost:17800/index.html. Follow the instructions to set up your monitoring preferences, including selecting services to monitor and configuring email notifications.
 ![Logo](https://raw.githubusercontent.com/saigkill/ServiceMonitor/develop/Assets/ServiceMonitorConfiguration.png)
 Then start the application again and show how the magic happens.
 
@@ -86,5 +86,4 @@ Then start the application again and show how the magic happens.
 ServiceMonitor is developed cross‑platform and can be configured using a JSON file. After the first start, a appsettings.user.json file will be created and then it fails.
 The configuration file is on one of the following paths:
 
-* Linux: /home/Username/.local/share/Saigkill/ServiceMonitor
-* Windows: C:\Users\Username\AppData\Local\Saigkill\ServiceMonitor 
+While each run the terminal shows you the path, where the app is installed and where the config and logs live. Search in terminal for "UserConfigPath is" and you know it.

@@ -4,7 +4,7 @@ namespace ServiceMonitor.Infrastructure.Configuration
 {
     public sealed class ServiceMonitorOptions
     {
-        [Required] public List<string> Urls { get; set; } = new();
+        [Required] public IList<string> Urls { get; set; } = [];
 
         public EmailOptions EmailServer { get; set; } = new();
 
@@ -20,9 +20,9 @@ namespace ServiceMonitor.Infrastructure.Configuration
         [Required] public string DefaultEmailSenderAddress { get; set; } = string.Empty;
         [Required] public string DefaultSenderName { get; set; } = string.Empty;
 
-        [Required] public List<string> To { get; set; } = new();
+        [Required] public IList<string> To { get; set; } = [];
 
-        [Required] public string Username { get; set; } = string.Empty;
+        [Required] public string User { get; set; } = string.Empty;
 
         [Required] public string Password { get; set; } = string.Empty;
     }

@@ -20,7 +20,7 @@ public sealed class HttpHealthMonitoringService(
         httpClient.Timeout = TimeSpan.FromSeconds(options.Value.System.TimeoutSeconds);
 
         var tasks = serviceUrls.Select(url => CheckServiceAsync(httpClient, url, cancellationToken));
-        return await Task.WhenAll(tasks);
+        return await Task.WhenAll(tasks).ConfigureAwait(false);
     }
 
     private static async Task<HealthCheckResult> CheckServiceAsync(
@@ -32,7 +32,7 @@ public sealed class HttpHealthMonitoringService(
         Guard.Against.Null(url);
         try
         {
-            var response = await client.GetAsync(url, cancellationToken);
+            var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
 
             return response.IsSuccessStatusCode
                 ? HealthCheckResult.Healthy(url, response.StatusCode)
