@@ -32,7 +32,7 @@ Goals:
 
 ## 3. Code Standards
 
-- C# 10
+- C# 13 features should be used where appropriate, but not at the cost of readability or maintainability.
 - Async/await consistently used
 - No `Task.Result` or `.Wait()`
 - Prefer pattern matching
@@ -54,13 +54,13 @@ Goals:
 ## 4. Project Structure
 
 - `Program.cs`: Entry point, keep minimal
+- `ServiceCollectionExtension`: Dependency Injection Setup
 - `ServiceMonitor.Application/`: Application Layer
 - `ServiceMonitor.Domain/`: Domain Layer, Business logic
 - `ServiceMonitor.Infrastructure/`: Infrastructure Layer, Implementations for I/O, system access, HTTP, filesystem
 - `ServiceMonitor.Infrastructure/Configuration/`: Options Classes, Bindings
+- `ServiceMonitor.Infrastructure/Hosting/ConsoleHostedService`: Hosting and application lifecycle management
 - `ServiceMonitor.Presentation/`: Presentation
-- `ServiceMonitor.Presentation/DependencyInjection`: Dependency Injection stuff
-- `ServiceMonitor.Presentation/Hosting`: ConsoleHosting
 - `Tests/`: Unit and Integration tests
 Copilot should suggest new files according to this structure.
 
@@ -118,6 +118,7 @@ The branching strategy is as follows:
   - Use the Arrange‑Act‑Assert pattern
   - Consider edge cases
   - Simulate Dependency Injection via Mocks
+- Maintain 100% test coverage for Domain and Application layers
 
 ---
 
