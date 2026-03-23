@@ -28,7 +28,7 @@ public sealed class EmailAlertServiceTests
         mockFluentEmail.Setup(f => f.To(It.IsAny<IEnumerable<Address>>())).Returns(mockFluentEmail.Object);
         mockFluentEmail.Setup(f => f.Subject(It.IsAny<string>())).Returns(mockFluentEmail.Object);
         mockFluentEmail.Setup(f => f.Body(It.IsAny<string>())).Returns(mockFluentEmail.Object);
-        mockFluentEmail.Setup(f => f.SendAsync(It.IsAny<CancellationToken>())).ReturnsAsync(sendResponse);
+        mockFluentEmail.Setup(f => f.SendAsync(It.IsAny<CancellationToken?>())).ReturnsAsync(sendResponse);
 
         var service = new EmailAlertService(mockLogger.Object, mockFluentEmail.Object);
         var serviceUrl = new Uri("http://example.com");
@@ -204,7 +204,7 @@ public sealed class EmailAlertServiceTests
         mockFluentEmail.Setup(f => f.To(It.IsAny<IEnumerable<Address>>())).Returns(mockFluentEmail.Object);
         mockFluentEmail.Setup(f => f.Subject(It.IsAny<string>())).Returns(mockFluentEmail.Object);
         mockFluentEmail.Setup(f => f.Body(It.IsAny<string>())).Returns(mockFluentEmail.Object);
-        mockFluentEmail.Setup(f => f.SendAsync(It.IsAny<CancellationToken>())).ReturnsAsync(sendResponse);
+        mockFluentEmail.Setup(f => f.SendAsync(It.IsAny<CancellationToken?>())).ReturnsAsync(sendResponse);
 
         var service = new EmailAlertService(mockLogger.Object, mockFluentEmail.Object);
         var serviceUrl = new Uri("http://example.com");
@@ -235,7 +235,7 @@ public sealed class EmailAlertServiceTests
         mockFluentEmail.Setup(f => f.To(It.IsAny<IEnumerable<Address>>())).Returns(mockFluentEmail.Object);
         mockFluentEmail.Setup(f => f.Subject(It.IsAny<string>())).Returns(mockFluentEmail.Object);
         mockFluentEmail.Setup(f => f.Body(It.IsAny<string>())).Returns(mockFluentEmail.Object);
-        mockFluentEmail.Setup(f => f.SendAsync(It.IsAny<CancellationToken>())).ReturnsAsync(sendResponse);
+        mockFluentEmail.Setup(f => f.SendAsync(It.IsAny<CancellationToken?>())).ReturnsAsync(sendResponse);
 
         var service = new EmailAlertService(mockLogger.Object, mockFluentEmail.Object);
         var serviceUrl = new Uri("http://example.com");
@@ -272,7 +272,7 @@ public sealed class EmailAlertServiceTests
         mockFluentEmail.Setup(f => f.To(It.IsAny<IEnumerable<Address>>())).Returns(mockFluentEmail.Object);
         mockFluentEmail.Setup(f => f.Subject(It.IsAny<string>())).Returns(mockFluentEmail.Object);
         mockFluentEmail.Setup(f => f.Body(It.IsAny<string>())).Returns(mockFluentEmail.Object);
-        mockFluentEmail.Setup(f => f.SendAsync(It.IsAny<CancellationToken>())).ReturnsAsync(sendResponse);
+        mockFluentEmail.Setup(f => f.SendAsync(It.IsAny<CancellationToken?>())).ReturnsAsync(sendResponse);
 
         var service = new EmailAlertService(mockLogger.Object, mockFluentEmail.Object);
         var serviceUrl = new Uri("http://example.com");
