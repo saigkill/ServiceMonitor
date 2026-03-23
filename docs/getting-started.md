@@ -42,6 +42,10 @@ cd /home/username
 dotnet ServiceMonitor.dll
 ``````
 
+### Windows MSI
+Download the MSI from Releasepage and doubleclick on it. After installation the app file are in C:\Users\$(Username)\AppData\Roaming\Saigkill\ServiceMonitor\win-x64.
+Then you can use dotnet ServiceMonitor.dll to start the app or create a shortcut to it.
+
 ### Linux DEB (Experimental)
 ``````bash
 sudo apt install servicemonitor_$(Version)_amd64.deb

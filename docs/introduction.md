@@ -7,7 +7,7 @@ ServiceMonitor is a lightweight, configuration‑driven monitoring tool designed
 
 * Monitor any HTTP/HTTPS endpoint
 * Configurable timeout
-*SMTP notifications on failure
+* SMTP notifications on failure
 * Structured logging to a configurable directory
 * Clean .NET Options Pattern configuration
 * Cross‑platform (Linux, Windows, Docker)
