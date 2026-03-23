@@ -40,7 +40,7 @@ namespace ServiceMonitor.Infrastructure.Hosting
                     await Task.Delay(TimeSpan.FromMinutes(options.Value.System.DaemonIntervalMinutes), cancellationToken).ConfigureAwait(false);
                 }
 
-                logger.LogInformation("Daemon wurde beendet.");
+                logger.LogInformation("Daemon has been stopped.");
 
             }
             catch (Exception ex)
