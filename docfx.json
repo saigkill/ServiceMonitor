@@ -1,0 +1,47 @@
+{
+  "$schema": "https://raw.githubusercontent.com/dotnet/docfx/main/schemas/docfx.schema.json",
+  "metadata": [
+    {
+      "src": [
+        {
+          "src": "src",
+          "files": [
+            "**/*.csproj"
+          ]
+        }
+      ],
+      "dest": "api"
+    }
+  ],
+  "build": {
+    "content": [
+      {
+        "files": [
+          "**/*.{md,yml}"
+        ],
+        "exclude": [
+            "_ServiceMonitor/**",
+            "azure-pipelines.yml"
+        ]
+      }
+    ],
+    "resource": [
+      {
+        "files": [
+          "Assets/**"
+        ]
+      }
+    ],
+    "output": "_ServiceMonitor",
+    "template": [
+      "default",
+      "modern"
+    ],
+    "globalMetadata": {
+      "_appName": "ServiceMonitor",
+      "_appTitle": "ServiceMonitor",
+      "_enableSearch": true,
+      "pdf": false
+    }
+  }
+}

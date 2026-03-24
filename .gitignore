@@ -369,4 +369,7 @@ FodyWeavers.xsd
 Distribute/
 .config/
 .idea/
-*docs*
+/src/ServiceManager.Package/ServiceManager.Package-cache/part1/disk1.cab
+/src/ServiceManager.Package/ServiceManager.Package-SetupFiles/pk_psadt_ServiceManager.Package
+/src/ServiceManager.Package/ServiceManager.Package-cache
+/src/ServiceManager.Package/ServiceManager.Package-SetupFiles/ServiceManager.Package.msi

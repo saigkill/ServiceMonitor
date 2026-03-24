@@ -1,0 +1,14 @@
+- name: Docs
+  href: docs/
+- name: API
+  href: api/
+- name: Code of Conduct
+  href: CODE_OF_CONDUCT.md
+- name: Contributing
+  href: CONTRIBUTING.md
+- name: License
+  href: LICENSE.md
+- name: Security
+  href: SECURITY.md
+- name: Maintenance
+  href: MAINTENANCE.md

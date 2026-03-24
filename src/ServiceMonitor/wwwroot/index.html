@@ -1,0 +1,121 @@
+    <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ServiceMonitor - Configuration</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ServiceMonitor</h1>
+            <img src="images/icon.png" width="20%" alt="ServiceMonitor Logo" />
+            <p class="subtitle">Service Monitoring & Configuration</p>
+        </header>
+
+        <main>
+            <section class="config-section">
+                <h2>Configuration</h2>
+
+                <div id="loading" class="loading">Loading configuration...</div>
+                <div id="error" class="error" style="display: none;"></div>
+                <div id="success" class="success" style="display: none;"></div>
+
+                <form id="configForm" style="display: none;">
+                    <div class="form-group">
+                        <label for="timeoutSeconds">Timeout (Seconds):</label>
+                        <input type="number" id="timeoutSeconds" name="system.timeoutSeconds" min="1" max="300" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="daemonIntervalMinutes">Daemon Interval (Minutes):</label>
+                        <input type="number" id="daemonIntervalMinutes" name="system.daemonIntervalMinutes" min="1" max="1440" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="webUiPort">Web UI Port:</label>
+                        <input type="number" id="webUiPort" name="system.webUiPort" min="1" max="65535" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="runMode">Run Mode:</label>
+                        <select id="runMode" name="system.runMode" required>
+                            <option value="Once">Once (Run once and exit)</option>
+                            <option value="Daemon">Daemon (Continuous monitoring)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>URLs:</label>
+                        <div id="urlsList" class="urls-list"></div>
+                        <button type="button" id="addUrlBtn" class="btn btn-secondary">+ Add URL</button>
+                    </div>
+
+                    <div class="form-group">
+                        <h3>Email Server</h3>
+
+                        <label for="smtpHost">SMTP Host:</label>
+                        <input type="text" id="smtpHost" name="emailServer.host" required>
+
+                        <label for="smtpPort">SMTP Port:</label>
+                        <input type="number" id="smtpPort" name="emailServer.port" min="1" max="65535" required>
+
+                        <label for="smtpUsername">Username:</label>
+                        <input type="text" id="smtpUsername" name="emailServer.user" required>
+
+                        <label for="smtpPassword">Password:</label>
+                        <input type="password" id="smtpPassword" name="emailServer.password" required>
+
+                        <label for="smtpFromEmail">From (Email):</label>
+                        <input type="email" id="smtpFromEmail" name="emailServer.DefaultEmailSenderAddress" required>
+
+                        <label for="smtpFromUsername">From (Username):</label>
+                        <input type="text" id="smtpFromUsername" name="emailServer.DefaultSenderName" required>
+
+                        <label>To (Recipients):</label>
+                        <div id="recipientsList" class="recipients-list"></div>
+                        <button type="button" id="addRecipientBtn" class="btn btn-secondary">+ Add Recipient</button>
+
+                        </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save Configuration</button>
+                        <button type="button" id="cancelBtn" class="btn btn-secondary">Cancel</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="info-section">
+                <h2>Status</h2>
+                <div class="status-info" id="statusInfo">
+                    <p>ServiceMonitor monitors configured URLs and sends email notifications when services fail.</p>
+                    <p><strong>Note:</strong> After saving, the service must be restarted for changes to take effect.</p>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2026+ ServiceMonitor by Sascha Manns | Version 1.1.1</p>
+        </footer>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script>
+        // Check if this is first run
+        fetch('/api/status')
+            .then(r => r.json())
+            .then(data => {
+                if (!data.configured) {
+                    document.getElementById('firstRunBanner').style.display = 'block';
+                    document.getElementById('statusInfo').innerHTML = `
+                        <p><strong>⚙️ Setup Required</strong></p>
+                        <p>Please fill in all required fields below to complete the initial setup.</p>
+                        <p>After saving, restart ServiceMonitor to begin monitoring your services.</p>
+                    `;
+                }
+            })
+            .catch(err => console.error('Failed to check status:', err));
+    </script>
+</body>
+</html>
