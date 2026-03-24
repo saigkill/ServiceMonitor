@@ -129,6 +129,7 @@ The branching strategy is as follows:
 - Release‑Builds are self‑contained
 - Versioning via Git‑Tags
 - No manual deployment documentation; everything is automated
+- We are using GitVersion to manage versioning based on Git history and branching strategy. This allows us to automatically generate version numbers for our builds and releases, ensuring consistency and reducing manual errors in versioning.
 
 ---
 
