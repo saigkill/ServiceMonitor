@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Ardalis.GuardClauses;
+using CSharpFunctionalExtensions;
 using ServiceMonitor.Domain.Entities;
 using ServiceMonitor.Domain.Interfaces;
 
@@ -9,18 +10,29 @@ public class InMemoryServiceHealthStateRepository : IServiceHealthStateRepositor
 {
     private readonly ConcurrentDictionary<Uri, ServiceHealthState> _states = new();
 
-    public Task<ServiceHealthState?> GetAsync(Uri url, CancellationToken cancellationToken)
+    public Task<Maybe<ServiceHealthState>> GetAsync(Uri url, CancellationToken cancellationToken)
     {
         Guard.Against.Null(url);
-        _states.TryGetValue(url, out var state);
-        return Task.FromResult(state);
+
+        return Task.FromResult(
+            _states.TryGetValue(url, out var state) 
+                ? Maybe<ServiceHealthState>.From(state) 
+                : Maybe<ServiceHealthState>.None);
     }
 
-    public Task SaveAsync(ServiceHealthState state, CancellationToken cancellationToken)
+    public Task<Result> SaveAsync(ServiceHealthState state, CancellationToken cancellationToken)
     {
         Guard.Against.Null(state);
-        _states[state.Url] = state;
-        return Task.CompletedTask;
+
+        try
+        {
+            _states[state.Url] = state;
+            return Task.FromResult(Result.Success());
+        }
+        catch (Exception ex)
+        {
+            return Task.FromResult(Result.Failure($"Failed to save state: {ex.Message}"));
+        }
     }
 }
 

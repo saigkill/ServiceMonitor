@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ServiceMonitor.Application.Interfaces;
@@ -16,7 +17,7 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Domain Layer (keine Dependencies)
+        // Domain Layer (no Dependencies)
 
         // Application Layer
         services.AddScoped<MonitorServicesUseCase>();
@@ -27,7 +28,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IHealthMonitoringService, HttpHealthMonitoringService>();
         services.AddFluentEmail(configuration["EmailServer:DefaultEmailSenderAddress"], configuration["EmailServer:DefaultSenderName"])
             .AddSmtpSender(configuration["EmailServer:Host"],
-                Convert.ToInt32(configuration["EmailServer:Port"]),
+                Convert.ToInt32(configuration["EmailServer:Port"], CultureInfo.InvariantCulture),
                 configuration["EmailServer:User"],
                 configuration["EmailServer:Password"]);
         services.AddScoped<IAlertService, EmailAlertService>();

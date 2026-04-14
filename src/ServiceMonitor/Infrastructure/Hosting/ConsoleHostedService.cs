@@ -21,7 +21,11 @@ namespace ServiceMonitor.Infrastructure.Hosting
 
                 if (options.Value.System.RunMode == RunMode.Once)
                 {
-                    await monitorServiceUseCase.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                    var result = await monitorServiceUseCase.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                    if (result.IsFailure)
+                    {
+                        logger.LogError("Monitoring execution failed: {Error}", result.Error);
+                    }
                     return;
                 }
 
@@ -30,7 +34,11 @@ namespace ServiceMonitor.Infrastructure.Hosting
                 {
                     try
                     {
-                        await monitorServiceUseCase.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                        var result = await monitorServiceUseCase.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                        if (result.IsFailure)
+                        {
+                            logger.LogError("Monitoring execution failed: {Error}", result.Error);
+                        }
                     }
                     catch (Exception ex)
                     {
