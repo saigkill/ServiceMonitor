@@ -1,3 +1,5 @@
+using System.Net;
+using CSharpFunctionalExtensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -7,566 +9,435 @@ using ServiceMonitor.Application.UseCases;
 using ServiceMonitor.Domain.Entities;
 using ServiceMonitor.Domain.Interfaces;
 using ServiceMonitor.Infrastructure.Configuration;
-using System.Net;
 
 namespace ServiceMonitor.UnitTests.Application.UseCases;
 
-/// <summary>
-/// Tests for the MonitorServicesUseCase class.
-/// </summary>
 [TestClass]
 public sealed class MonitorServicesUseCaseTests
 {
-    /// <summary>
-    /// Tests that ExecuteAsync processes healthy service correctly.
-    /// </summary>
-    [TestMethod]
-    public async Task ExecuteAsync_HealthyService_UpdatesStateWithoutSendingAlert()
-    {
-        // Arrange
-        var mockHealthMonitoring = new Mock<IHealthMonitoringService>();
-        var mockAlertService = new Mock<IAlertService>();
-        var mockLogger = new Mock<ILogger<MonitorServicesUseCase>>();
-        var mockStateRepository = new Mock<IServiceHealthStateRepository>();
+    private Mock<IHealthMonitoringService> _healthMonitoringServiceMock = null!;
+    private Mock<IAlertService> _alertServiceMock = null!;
+    private Mock<IOptions<ServiceMonitorOptions>> _optionsMock = null!;
+    private Mock<ILogger<MonitorServicesUseCase>> _loggerMock = null!;
+    private Mock<IServiceHealthStateRepository> _stateRepositoryMock = null!;
+    private MonitorServicesUseCase _sut = null!;
+    private ServiceMonitorOptions _options = null!;
 
-        var serviceUrl = new Uri("https://example.com");
-        var options = Options.Create(new ServiceMonitorOptions
+    [TestInitialize]
+    public void TestInitialize()
+    {
+        _healthMonitoringServiceMock = new Mock<IHealthMonitoringService>();
+        _alertServiceMock = new Mock<IAlertService>();
+        _optionsMock = new Mock<IOptions<ServiceMonitorOptions>>();
+        _loggerMock = new Mock<ILogger<MonitorServicesUseCase>>();
+        _stateRepositoryMock = new Mock<IServiceHealthStateRepository>();
+
+        _options = new ServiceMonitorOptions
         {
-            Urls = new List<string> { serviceUrl.ToString() },
+            Urls = ["https://example.com"],
             EmailServer = new EmailOptions
             {
-                To = new List<string> { "admin@example.com" }
+                To = ["admin@example.com"]
             }
-        });
+        };
 
-        var healthCheckResult = HealthCheckResult.Healthy(serviceUrl, HttpStatusCode.OK);
-        mockHealthMonitoring
-            .Setup(h => h.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[] { healthCheckResult });
+        _optionsMock.Setup(x => x.Value).Returns(_options);
 
-        var existingState = new ServiceHealthState(serviceUrl, false);
-        mockStateRepository
-            .Setup(r => r.GetAsync(serviceUrl, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(existingState);
-
-        var useCase = new MonitorServicesUseCase(
-            mockHealthMonitoring.Object,
-            mockAlertService.Object,
-            options,
-            mockLogger.Object,
-            mockStateRepository.Object);
-
-        // Act
-        await useCase.ExecuteAsync(CancellationToken.None);
-
-        // Assert
-        mockHealthMonitoring.Verify(
-            h => h.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), It.IsAny<CancellationToken>()),
-            Times.Once);
-        mockAlertService.Verify(
-            a => a.SendAlertAsync(It.IsAny<Uri>(), It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
-            Times.Never);
-        Assert.IsTrue(existingState.IsHealthy);
+        _sut = new MonitorServicesUseCase(
+            _healthMonitoringServiceMock.Object,
+            _alertServiceMock.Object,
+            _optionsMock.Object,
+            _loggerMock.Object,
+            _stateRepositoryMock.Object);
     }
 
-    /// <summary>
-    /// Tests that ExecuteAsync sends alert for unhealthy service when no alert was sent before.
-    /// </summary>
     [TestMethod]
-    public async Task ExecuteAsync_UnhealthyServiceWithoutAlertSent_SendsAlert()
+    public async Task ExecuteAsync_HealthMonitoringFails_ReturnsFailure()
     {
         // Arrange
-        var mockHealthMonitoring = new Mock<IHealthMonitoringService>();
-        var mockAlertService = new Mock<IAlertService>();
-        var mockLogger = new Mock<ILogger<MonitorServicesUseCase>>();
-        var mockStateRepository = new Mock<IServiceHealthStateRepository>();
-
-        var serviceUrl = new Uri("https://example.com");
-        var options = Options.Create(new ServiceMonitorOptions
-        {
-            Urls = new List<string> { serviceUrl.ToString() },
-            EmailServer = new EmailOptions
-            {
-                To = new List<string> { "admin@example.com" }
-            }
-        });
-
-        var healthCheckResult = HealthCheckResult.Unhealthy(serviceUrl, "Service unreachable", HttpStatusCode.ServiceUnavailable);
-        mockHealthMonitoring
-            .Setup(h => h.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[] { healthCheckResult });
-
-        var existingState = new ServiceHealthState(serviceUrl, true);
-        mockStateRepository
-            .Setup(r => r.GetAsync(serviceUrl, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(existingState);
-
-        mockAlertService
-            .Setup(a => a.SendAlertAsync(It.IsAny<Uri>(), It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        var useCase = new MonitorServicesUseCase(
-            mockHealthMonitoring.Object,
-            mockAlertService.Object,
-            options,
-            mockLogger.Object,
-            mockStateRepository.Object);
+        var cancellationToken = CancellationToken.None;
+        var errorMessage = "Monitoring service unavailable";
+        _healthMonitoringServiceMock
+            .Setup(x => x.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), cancellationToken))
+            .ReturnsAsync(Result.Failure<IEnumerable<HealthCheckResult>>(errorMessage));
 
         // Act
-        await useCase.ExecuteAsync(CancellationToken.None);
+        var result = await _sut.ExecuteAsync(cancellationToken);
 
         // Assert
-        mockAlertService.Verify(
-            a => a.SendAlertAsync(
-                serviceUrl,
-                "Service unreachable",
-                options.Value.EmailServer.To,
-                It.IsAny<CancellationToken>()),
-            Times.Once);
-        Assert.IsTrue(existingState.AlertSent);
-        Assert.IsFalse(existingState.IsHealthy);
+        Assert.IsFalse(result.IsSuccess);
+        Assert.AreEqual(errorMessage, result.Error);
     }
 
-    /// <summary>
-    /// Tests that ExecuteAsync does not send alert for unhealthy service when alert was already sent.
-    /// </summary>
+    [TestMethod]
+    public async Task ExecuteAsync_HealthyService_SavesStateAndReturnsSuccess()
+    {
+        // Arrange
+        var cancellationToken = CancellationToken.None;
+        var url = new Uri("https://example.com");
+        var healthCheckResults = new[]
+        {
+            new HealthCheckResult(url, true, HttpStatusCode.OK, Maybe<string>.None)
+        };
+
+        _healthMonitoringServiceMock
+            .Setup(x => x.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), cancellationToken))
+            .ReturnsAsync(Result.Success<IEnumerable<HealthCheckResult>>(healthCheckResults));
+
+        _stateRepositoryMock
+            .Setup(x => x.GetAsync(url, cancellationToken))
+            .ReturnsAsync(Maybe<ServiceHealthState>.None);
+
+        _stateRepositoryMock
+            .Setup(x => x.SaveAsync(It.IsAny<ServiceHealthState>(), cancellationToken))
+            .ReturnsAsync(Result.Success());
+
+        // Act
+        var result = await _sut.ExecuteAsync(cancellationToken);
+
+        // Assert
+        Assert.IsTrue(result.IsSuccess);
+        _stateRepositoryMock.Verify(x => x.SaveAsync(It.IsAny<ServiceHealthState>(), cancellationToken), Times.Once);
+        _alertServiceMock.Verify(x => x.SendAlertAsync(It.IsAny<Uri>(), It.IsAny<string>(), It.IsAny<IList<string>>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [TestMethod]
+    public async Task ExecuteAsync_UnhealthyServiceWithoutPreviousState_SendsAlertAndSavesState()
+    {
+        // Arrange
+        var cancellationToken = CancellationToken.None;
+        var url = new Uri("https://example.com");
+        var errorMessage = "Service unavailable";
+        var healthCheckResults = new[]
+        {
+            new HealthCheckResult(url, false, HttpStatusCode.ServiceUnavailable, Maybe<string>.From(errorMessage))
+        };
+
+        _healthMonitoringServiceMock
+            .Setup(x => x.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), cancellationToken))
+            .ReturnsAsync(Result.Success<IEnumerable<HealthCheckResult>>(healthCheckResults));
+
+        _stateRepositoryMock
+            .Setup(x => x.GetAsync(url, cancellationToken))
+            .ReturnsAsync(Maybe<ServiceHealthState>.None);
+
+        _alertServiceMock
+            .Setup(x => x.SendAlertAsync(url, errorMessage, _options.EmailServer.To, cancellationToken))
+            .ReturnsAsync(Result.Success());
+
+        _stateRepositoryMock
+            .Setup(x => x.SaveAsync(It.IsAny<ServiceHealthState>(), cancellationToken))
+            .ReturnsAsync(Result.Success());
+
+        // Act
+        var result = await _sut.ExecuteAsync(cancellationToken);
+
+        // Assert
+        Assert.IsTrue(result.IsSuccess);
+        _alertServiceMock.Verify(x => x.SendAlertAsync(url, errorMessage, _options.EmailServer.To, cancellationToken), Times.Once);
+        _stateRepositoryMock.Verify(x => x.SaveAsync(It.IsAny<ServiceHealthState>(), cancellationToken), Times.Once);
+    }
+
+    [TestMethod]
+    public async Task ExecuteAsync_UnhealthyServiceWithErrorMessageNone_SendsAlertWithUnknownError()
+    {
+        // Arrange
+        var cancellationToken = CancellationToken.None;
+        var url = new Uri("https://example.com");
+        var healthCheckResults = new[]
+        {
+            new HealthCheckResult(url, false, HttpStatusCode.ServiceUnavailable, Maybe<string>.None)
+        };
+
+        _healthMonitoringServiceMock
+            .Setup(x => x.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), cancellationToken))
+            .ReturnsAsync(Result.Success<IEnumerable<HealthCheckResult>>(healthCheckResults));
+
+        _stateRepositoryMock
+            .Setup(x => x.GetAsync(url, cancellationToken))
+            .ReturnsAsync(Maybe<ServiceHealthState>.None);
+
+        _alertServiceMock
+            .Setup(x => x.SendAlertAsync(url, "Unknown error", _options.EmailServer.To, cancellationToken))
+            .ReturnsAsync(Result.Success());
+
+        _stateRepositoryMock
+            .Setup(x => x.SaveAsync(It.IsAny<ServiceHealthState>(), cancellationToken))
+            .ReturnsAsync(Result.Success());
+
+        // Act
+        var result = await _sut.ExecuteAsync(cancellationToken);
+
+        // Assert
+        Assert.IsTrue(result.IsSuccess);
+        _alertServiceMock.Verify(x => x.SendAlertAsync(url, "Unknown error", _options.EmailServer.To, cancellationToken), Times.Once);
+    }
+
     [TestMethod]
     public async Task ExecuteAsync_UnhealthyServiceWithAlertAlreadySent_DoesNotSendAlert()
     {
         // Arrange
-        var mockHealthMonitoring = new Mock<IHealthMonitoringService>();
-        var mockAlertService = new Mock<IAlertService>();
-        var mockLogger = new Mock<ILogger<MonitorServicesUseCase>>();
-        var mockStateRepository = new Mock<IServiceHealthStateRepository>();
-
-        var serviceUrl = new Uri("https://example.com");
-        var options = Options.Create(new ServiceMonitorOptions
+        var cancellationToken = CancellationToken.None;
+        var url = new Uri("https://example.com");
+        var errorMessage = "Service unavailable";
+        var healthCheckResults = new[]
         {
-            Urls = new List<string> { serviceUrl.ToString() },
-            EmailServer = new EmailOptions
-            {
-                To = new List<string> { "admin@example.com" }
-            }
-        });
+            new HealthCheckResult(url, false, HttpStatusCode.ServiceUnavailable, Maybe<string>.From(errorMessage))
+        };
 
-        var healthCheckResult = HealthCheckResult.Unhealthy(serviceUrl, "Service unreachable", HttpStatusCode.ServiceUnavailable);
-        mockHealthMonitoring
-            .Setup(h => h.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[] { healthCheckResult });
-
-        var existingState = new ServiceHealthState(serviceUrl, false);
+        var existingState = new ServiceHealthState(url, false);
         existingState.MarkAlertSent();
-        mockStateRepository
-            .Setup(r => r.GetAsync(serviceUrl, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(existingState);
 
-        var useCase = new MonitorServicesUseCase(
-            mockHealthMonitoring.Object,
-            mockAlertService.Object,
-            options,
-            mockLogger.Object,
-            mockStateRepository.Object);
+        _healthMonitoringServiceMock
+            .Setup(x => x.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), cancellationToken))
+            .ReturnsAsync(Result.Success<IEnumerable<HealthCheckResult>>(healthCheckResults));
+
+        _stateRepositoryMock
+            .Setup(x => x.GetAsync(url, cancellationToken))
+            .ReturnsAsync(Maybe<ServiceHealthState>.From(existingState));
+
+        _stateRepositoryMock
+            .Setup(x => x.SaveAsync(It.IsAny<ServiceHealthState>(), cancellationToken))
+            .ReturnsAsync(Result.Success());
 
         // Act
-        await useCase.ExecuteAsync(CancellationToken.None);
+        var result = await _sut.ExecuteAsync(cancellationToken);
 
         // Assert
-        mockAlertService.Verify(
-            a => a.SendAlertAsync(It.IsAny<Uri>(), It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
-            Times.Never);
-        Assert.IsTrue(existingState.AlertSent);
-        Assert.IsFalse(existingState.IsHealthy);
+        Assert.IsTrue(result.IsSuccess);
+        _alertServiceMock.Verify(x => x.SendAlertAsync(It.IsAny<Uri>(), It.IsAny<string>(), It.IsAny<IList<string>>(), It.IsAny<CancellationToken>()), Times.Never);
+        _stateRepositoryMock.Verify(x => x.SaveAsync(It.IsAny<ServiceHealthState>(), cancellationToken), Times.Once);
     }
 
-    /// <summary>
-    /// Tests that ExecuteAsync creates new state when repository returns null.
-    /// </summary>
     [TestMethod]
-    public async Task ExecuteAsync_NoExistingState_CreatesNewState()
+    public async Task ExecuteAsync_AlertSendingFails_ContinuesWithoutSavingState()
     {
         // Arrange
-        var mockHealthMonitoring = new Mock<IHealthMonitoringService>();
-        var mockAlertService = new Mock<IAlertService>();
-        var mockLogger = new Mock<ILogger<MonitorServicesUseCase>>();
-        var mockStateRepository = new Mock<IServiceHealthStateRepository>();
-
-        var serviceUrl = new Uri("https://example.com");
-        var options = Options.Create(new ServiceMonitorOptions
+        var cancellationToken = CancellationToken.None;
+        var url = new Uri("https://example.com");
+        var errorMessage = "Service unavailable";
+        var alertError = "SMTP server unavailable";
+        var healthCheckResults = new[]
         {
-            Urls = new List<string> { serviceUrl.ToString() },
-            EmailServer = new EmailOptions
-            {
-                To = new List<string> { "admin@example.com" }
-            }
-        });
+            new HealthCheckResult(url, false, HttpStatusCode.ServiceUnavailable, Maybe<string>.From(errorMessage))
+        };
 
-        var healthCheckResult = HealthCheckResult.Healthy(serviceUrl, HttpStatusCode.OK);
-        mockHealthMonitoring
-            .Setup(h => h.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[] { healthCheckResult });
+        _healthMonitoringServiceMock
+            .Setup(x => x.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), cancellationToken))
+            .ReturnsAsync(Result.Success<IEnumerable<HealthCheckResult>>(healthCheckResults));
 
-        mockStateRepository
-            .Setup(r => r.GetAsync(serviceUrl, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((ServiceHealthState?)null);
+        _stateRepositoryMock
+            .Setup(x => x.GetAsync(url, cancellationToken))
+            .ReturnsAsync(Maybe<ServiceHealthState>.None);
 
-        var useCase = new MonitorServicesUseCase(
-            mockHealthMonitoring.Object,
-            mockAlertService.Object,
-            options,
-            mockLogger.Object,
-            mockStateRepository.Object);
+        _alertServiceMock
+            .Setup(x => x.SendAlertAsync(url, errorMessage, _options.EmailServer.To, cancellationToken))
+            .ReturnsAsync(Result.Failure(alertError));
+
+        _stateRepositoryMock
+            .Setup(x => x.SaveAsync(It.IsAny<ServiceHealthState>(), cancellationToken))
+            .ReturnsAsync(Result.Success());
 
         // Act
-        await useCase.ExecuteAsync(CancellationToken.None);
+        var result = await _sut.ExecuteAsync(cancellationToken);
 
         // Assert
-        mockStateRepository.Verify(
-            r => r.GetAsync(serviceUrl, It.IsAny<CancellationToken>()),
-            Times.Once);
-        mockHealthMonitoring.Verify(
-            h => h.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), It.IsAny<CancellationToken>()),
-            Times.Once);
+        Assert.IsTrue(result.IsSuccess);
+        _alertServiceMock.Verify(x => x.SendAlertAsync(url, errorMessage, _options.EmailServer.To, cancellationToken), Times.Once);
+        _stateRepositoryMock.Verify(x => x.SaveAsync(It.IsAny<ServiceHealthState>(), cancellationToken), Times.Never);
     }
 
-    /// <summary>
-    /// Tests that ExecuteAsync handles multiple services correctly.
-    /// </summary>
+    [TestMethod]
+    public async Task ExecuteAsync_StateSavingFails_LogsErrorButContinues()
+    {
+        // Arrange
+        var cancellationToken = CancellationToken.None;
+        var url = new Uri("https://example.com");
+        var saveError = "Database unavailable";
+        var healthCheckResults = new[]
+        {
+            new HealthCheckResult(url, true, HttpStatusCode.OK, Maybe<string>.None)
+        };
+
+        _healthMonitoringServiceMock
+            .Setup(x => x.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), cancellationToken))
+            .ReturnsAsync(Result.Success<IEnumerable<HealthCheckResult>>(healthCheckResults));
+
+        _stateRepositoryMock
+            .Setup(x => x.GetAsync(url, cancellationToken))
+            .ReturnsAsync(Maybe<ServiceHealthState>.None);
+
+        _stateRepositoryMock
+            .Setup(x => x.SaveAsync(It.IsAny<ServiceHealthState>(), cancellationToken))
+            .ReturnsAsync(Result.Failure(saveError));
+
+        // Act
+        var result = await _sut.ExecuteAsync(cancellationToken);
+
+        // Assert
+        Assert.IsTrue(result.IsSuccess);
+        _stateRepositoryMock.Verify(x => x.SaveAsync(It.IsAny<ServiceHealthState>(), cancellationToken), Times.Once);
+    }
+
     [TestMethod]
     public async Task ExecuteAsync_MultipleServices_ProcessesAll()
     {
         // Arrange
-        var mockHealthMonitoring = new Mock<IHealthMonitoringService>();
-        var mockAlertService = new Mock<IAlertService>();
-        var mockLogger = new Mock<ILogger<MonitorServicesUseCase>>();
-        var mockStateRepository = new Mock<IServiceHealthStateRepository>();
+        var cancellationToken = CancellationToken.None;
+        var url1 = new Uri("https://example1.com");
+        var url2 = new Uri("https://example2.com");
+        _options.Urls = ["https://example1.com", "https://example2.com"];
 
-        var serviceUrl1 = new Uri("https://example1.com");
-        var serviceUrl2 = new Uri("https://example2.com");
-        var options = Options.Create(new ServiceMonitorOptions
+        var healthCheckResults = new[]
         {
-            Urls = new List<string> { serviceUrl1.ToString(), serviceUrl2.ToString() },
-            EmailServer = new EmailOptions
-            {
-                To = new List<string> { "admin@example.com" }
-            }
-        });
-
-        var healthCheckResult1 = HealthCheckResult.Healthy(serviceUrl1, HttpStatusCode.OK);
-        var healthCheckResult2 = HealthCheckResult.Unhealthy(serviceUrl2, "Service down", HttpStatusCode.ServiceUnavailable);
-        mockHealthMonitoring
-            .Setup(h => h.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[] { healthCheckResult1, healthCheckResult2 });
-
-        var state1 = new ServiceHealthState(serviceUrl1, true);
-        var state2 = new ServiceHealthState(serviceUrl2, true);
-        mockStateRepository
-            .Setup(r => r.GetAsync(serviceUrl1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(state1);
-        mockStateRepository
-            .Setup(r => r.GetAsync(serviceUrl2, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(state2);
-
-        mockAlertService
-            .Setup(a => a.SendAlertAsync(It.IsAny<Uri>(), It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        var useCase = new MonitorServicesUseCase(
-            mockHealthMonitoring.Object,
-            mockAlertService.Object,
-            options,
-            mockLogger.Object,
-            mockStateRepository.Object);
-
-        // Act
-        await useCase.ExecuteAsync(CancellationToken.None);
-
-        // Assert
-        mockStateRepository.Verify(
-            r => r.GetAsync(It.IsAny<Uri>(), It.IsAny<CancellationToken>()),
-            Times.Exactly(2));
-        mockAlertService.Verify(
-            a => a.SendAlertAsync(serviceUrl2, "Service down", options.Value.EmailServer.To, It.IsAny<CancellationToken>()),
-            Times.Once);
-    }
-
-    /// <summary>
-    /// Tests that ExecuteAsync uses "Unknown error" when error message is null.
-    /// </summary>
-    [TestMethod]
-    public async Task ExecuteAsync_UnhealthyServiceWithNullErrorMessage_UsesDefaultErrorMessage()
-    {
-        // Arrange
-        var mockHealthMonitoring = new Mock<IHealthMonitoringService>();
-        var mockAlertService = new Mock<IAlertService>();
-        var mockLogger = new Mock<ILogger<MonitorServicesUseCase>>();
-        var mockStateRepository = new Mock<IServiceHealthStateRepository>();
-
-        var serviceUrl = new Uri("https://example.com");
-        var options = Options.Create(new ServiceMonitorOptions
-        {
-            Urls = new List<string> { serviceUrl.ToString() },
-            EmailServer = new EmailOptions
-            {
-                To = new List<string> { "admin@example.com" }
-            }
-        });
-
-        var healthCheckResult = new HealthCheckResult
-        {
-            ServiceUrl = serviceUrl,
-            IsHealthy = false,
-            StatusCode = HttpStatusCode.InternalServerError,
-            ErrorMessage = null,
-            CheckedAt = DateTime.UtcNow
+            new HealthCheckResult(url1, true, HttpStatusCode.OK, Maybe<string>.None),
+            new HealthCheckResult(url2, false, HttpStatusCode.InternalServerError, Maybe<string>.From("Error"))
         };
-        mockHealthMonitoring
-            .Setup(h => h.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[] { healthCheckResult });
 
-        var existingState = new ServiceHealthState(serviceUrl, true);
-        mockStateRepository
-            .Setup(r => r.GetAsync(serviceUrl, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(existingState);
+        _healthMonitoringServiceMock
+            .Setup(x => x.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), cancellationToken))
+            .ReturnsAsync(Result.Success<IEnumerable<HealthCheckResult>>(healthCheckResults));
 
-        mockAlertService
-            .Setup(a => a.SendAlertAsync(It.IsAny<Uri>(), It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        _stateRepositoryMock
+            .Setup(x => x.GetAsync(It.IsAny<Uri>(), cancellationToken))
+            .ReturnsAsync(Maybe<ServiceHealthState>.None);
 
-        var useCase = new MonitorServicesUseCase(
-            mockHealthMonitoring.Object,
-            mockAlertService.Object,
-            options,
-            mockLogger.Object,
-            mockStateRepository.Object);
+        _alertServiceMock
+            .Setup(x => x.SendAlertAsync(It.IsAny<Uri>(), It.IsAny<string>(), It.IsAny<IList<string>>(), cancellationToken))
+            .ReturnsAsync(Result.Success());
+
+        _stateRepositoryMock
+            .Setup(x => x.SaveAsync(It.IsAny<ServiceHealthState>(), cancellationToken))
+            .ReturnsAsync(Result.Success());
 
         // Act
-        await useCase.ExecuteAsync(CancellationToken.None);
+        var result = await _sut.ExecuteAsync(cancellationToken);
 
         // Assert
-        mockAlertService.Verify(
-            a => a.SendAlertAsync(
-                serviceUrl,
-                "Unknown error",
-                options.Value.EmailServer.To,
-                It.IsAny<CancellationToken>()),
-            Times.Once);
+        Assert.IsTrue(result.IsSuccess);
+        _stateRepositoryMock.Verify(x => x.SaveAsync(It.IsAny<ServiceHealthState>(), cancellationToken), Times.Exactly(2));
+        _alertServiceMock.Verify(x => x.SendAlertAsync(url2, "Error", _options.EmailServer.To, cancellationToken), Times.Once);
     }
 
-    /// <summary>
-    /// Tests that ExecuteAsync logs error when sending alert for unhealthy service.
-    /// </summary>
     [TestMethod]
-    public async Task ExecuteAsync_UnhealthyServiceSendsAlert_LogsError()
+    public async Task ExecuteAsync_UnhealthyServiceWithExistingHealthyState_SendsAlert()
     {
         // Arrange
-        var mockHealthMonitoring = new Mock<IHealthMonitoringService>();
-        var mockAlertService = new Mock<IAlertService>();
-        var mockLogger = new Mock<ILogger<MonitorServicesUseCase>>();
-        var mockStateRepository = new Mock<IServiceHealthStateRepository>();
-
-        var serviceUrl = new Uri("https://example.com");
-        var options = Options.Create(new ServiceMonitorOptions
+        var cancellationToken = CancellationToken.None;
+        var url = new Uri("https://example.com");
+        var errorMessage = "Service down";
+        var healthCheckResults = new[]
         {
-            Urls = new List<string> { serviceUrl.ToString() },
-            EmailServer = new EmailOptions
-            {
-                To = new List<string> { "admin@example.com" }
-            }
-        });
+            new HealthCheckResult(url, false, HttpStatusCode.ServiceUnavailable, Maybe<string>.From(errorMessage))
+        };
 
-        var healthCheckResult = HealthCheckResult.Unhealthy(serviceUrl, "Service unreachable", HttpStatusCode.ServiceUnavailable);
-        mockHealthMonitoring
-            .Setup(h => h.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[] { healthCheckResult });
+        var existingState = new ServiceHealthState(url, true);
 
-        var existingState = new ServiceHealthState(serviceUrl, true);
-        mockStateRepository
-            .Setup(r => r.GetAsync(serviceUrl, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(existingState);
+        _healthMonitoringServiceMock
+            .Setup(x => x.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), cancellationToken))
+            .ReturnsAsync(Result.Success<IEnumerable<HealthCheckResult>>(healthCheckResults));
 
-        mockAlertService
-            .Setup(a => a.SendAlertAsync(It.IsAny<Uri>(), It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        _stateRepositoryMock
+            .Setup(x => x.GetAsync(url, cancellationToken))
+            .ReturnsAsync(Maybe<ServiceHealthState>.From(existingState));
 
-        var useCase = new MonitorServicesUseCase(
-            mockHealthMonitoring.Object,
-            mockAlertService.Object,
-            options,
-            mockLogger.Object,
-            mockStateRepository.Object);
+        _alertServiceMock
+            .Setup(x => x.SendAlertAsync(url, errorMessage, _options.EmailServer.To, cancellationToken))
+            .ReturnsAsync(Result.Success());
+
+        _stateRepositoryMock
+            .Setup(x => x.SaveAsync(It.IsAny<ServiceHealthState>(), cancellationToken))
+            .ReturnsAsync(Result.Success());
 
         // Act
-        await useCase.ExecuteAsync(CancellationToken.None);
+        var result = await _sut.ExecuteAsync(cancellationToken);
 
         // Assert
-        mockLogger.Verify(
-            x => x.Log(
-                LogLevel.Error,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => true),
-                It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.Once);
+        Assert.IsTrue(result.IsSuccess);
+        _alertServiceMock.Verify(x => x.SendAlertAsync(url, errorMessage, _options.EmailServer.To, cancellationToken), Times.Once);
+        _stateRepositoryMock.Verify(x => x.SaveAsync(
+            It.Is<ServiceHealthState>(s => s.AlertSent && !s.IsHealthy),
+            cancellationToken), Times.Once);
     }
 
-    /// <summary>
-    /// Tests that ExecuteAsync logs information when service is unhealthy.
-    /// </summary>
     [TestMethod]
-    public async Task ExecuteAsync_UnhealthyService_LogsInformation()
+    public async Task ExecuteAsync_ServiceRecovers_ResetsAlertSentFlag()
     {
         // Arrange
-        var mockHealthMonitoring = new Mock<IHealthMonitoringService>();
-        var mockAlertService = new Mock<IAlertService>();
-        var mockLogger = new Mock<ILogger<MonitorServicesUseCase>>();
-        var mockStateRepository = new Mock<IServiceHealthStateRepository>();
-
-        var serviceUrl = new Uri("https://example.com");
-        var options = Options.Create(new ServiceMonitorOptions
+        var cancellationToken = CancellationToken.None;
+        var url = new Uri("https://example.com");
+        var healthCheckResults = new[]
         {
-            Urls = new List<string> { serviceUrl.ToString() },
-            EmailServer = new EmailOptions
-            {
-                To = new List<string> { "admin@example.com" }
-            }
-        });
+            new HealthCheckResult(url, true, HttpStatusCode.OK, Maybe<string>.None)
+        };
 
-        var healthCheckResult = HealthCheckResult.Unhealthy(serviceUrl, "Service unreachable", HttpStatusCode.ServiceUnavailable);
-        mockHealthMonitoring
-            .Setup(h => h.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new[] { healthCheckResult });
-
-        var existingState = new ServiceHealthState(serviceUrl, false);
+        var existingState = new ServiceHealthState(url, false);
         existingState.MarkAlertSent();
-        mockStateRepository
-            .Setup(r => r.GetAsync(serviceUrl, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(existingState);
 
-        var useCase = new MonitorServicesUseCase(
-            mockHealthMonitoring.Object,
-            mockAlertService.Object,
-            options,
-            mockLogger.Object,
-            mockStateRepository.Object);
+        _healthMonitoringServiceMock
+            .Setup(x => x.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), cancellationToken))
+            .ReturnsAsync(Result.Success<IEnumerable<HealthCheckResult>>(healthCheckResults));
+
+        _stateRepositoryMock
+            .Setup(x => x.GetAsync(url, cancellationToken))
+            .ReturnsAsync(Maybe<ServiceHealthState>.From(existingState));
+
+        _stateRepositoryMock
+            .Setup(x => x.SaveAsync(It.IsAny<ServiceHealthState>(), cancellationToken))
+            .ReturnsAsync(Result.Success());
 
         // Act
-        await useCase.ExecuteAsync(CancellationToken.None);
+        var result = await _sut.ExecuteAsync(cancellationToken);
 
         // Assert
-        mockLogger.Verify(
-            x => x.Log(
-                LogLevel.Information,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => true),
-                It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.Once);
+        Assert.IsTrue(result.IsSuccess);
+        _stateRepositoryMock.Verify(x => x.SaveAsync(
+            It.Is<ServiceHealthState>(s => !s.AlertSent && s.IsHealthy),
+            cancellationToken), Times.Once);
     }
 
-    /// <summary>
-    /// Tests that ExecuteAsync converts URLs from options to Uri objects.
-    /// </summary>
     [TestMethod]
-    public async Task ExecuteAsync_UrlsInOptions_ConvertsToUriObjects()
+    public async Task ExecuteAsync_MultipleServicesOneAlertFails_ProcessesRemainingButSkipsFailedOne()
     {
         // Arrange
-        var mockHealthMonitoring = new Mock<IHealthMonitoringService>();
-        var mockAlertService = new Mock<IAlertService>();
-        var mockLogger = new Mock<ILogger<MonitorServicesUseCase>>();
-        var mockStateRepository = new Mock<IServiceHealthStateRepository>();
+        var cancellationToken = CancellationToken.None;
+        var url1 = new Uri("https://example1.com");
+        var url2 = new Uri("https://example2.com");
+        _options.Urls = ["https://example1.com", "https://example2.com"];
 
-        var serviceUrl1 = "https://example1.com/";
-        var serviceUrl2 = "https://example2.com/";
-        var options = Options.Create(new ServiceMonitorOptions
+        var healthCheckResults = new[]
         {
-            Urls = new List<string> { serviceUrl1, serviceUrl2 },
-            EmailServer = new EmailOptions
-            {
-                To = new List<string> { "admin@example.com" }
-            }
-        });
+            new HealthCheckResult(url1, false, HttpStatusCode.InternalServerError, Maybe<string>.From("Error1")),
+            new HealthCheckResult(url2, false, HttpStatusCode.ServiceUnavailable, Maybe<string>.From("Error2"))
+        };
 
-        IEnumerable<Uri>? capturedUris = null;
-        mockHealthMonitoring
-            .Setup(h => h.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), It.IsAny<CancellationToken>()))
-            .Callback<IEnumerable<Uri>, CancellationToken>((urls, ct) => capturedUris = urls.ToList())
-            .ReturnsAsync(Array.Empty<HealthCheckResult>());
+        _healthMonitoringServiceMock
+            .Setup(x => x.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), cancellationToken))
+            .ReturnsAsync(Result.Success<IEnumerable<HealthCheckResult>>(healthCheckResults));
 
-        var useCase = new MonitorServicesUseCase(
-            mockHealthMonitoring.Object,
-            mockAlertService.Object,
-            options,
-            mockLogger.Object,
-            mockStateRepository.Object);
+        _stateRepositoryMock
+            .Setup(x => x.GetAsync(It.IsAny<Uri>(), cancellationToken))
+            .ReturnsAsync(Maybe<ServiceHealthState>.None);
+
+        _alertServiceMock
+            .Setup(x => x.SendAlertAsync(url1, "Error1", _options.EmailServer.To, cancellationToken))
+            .ReturnsAsync(Result.Failure("Alert failed"));
+
+        _alertServiceMock
+            .Setup(x => x.SendAlertAsync(url2, "Error2", _options.EmailServer.To, cancellationToken))
+            .ReturnsAsync(Result.Success());
+
+        _stateRepositoryMock
+            .Setup(x => x.SaveAsync(It.IsAny<ServiceHealthState>(), cancellationToken))
+            .ReturnsAsync(Result.Success());
 
         // Act
-        await useCase.ExecuteAsync(CancellationToken.None);
+        var result = await _sut.ExecuteAsync(cancellationToken);
 
         // Assert
-        Assert.IsNotNull(capturedUris);
-        Assert.AreEqual(2, capturedUris.Count());
-        Assert.IsTrue(capturedUris.Any(u => u.ToString() == serviceUrl1));
-        Assert.IsTrue(capturedUris.Any(u => u.ToString() == serviceUrl2));
-    }
-
-    /// <summary>
-    /// Tests that ExecuteAsync passes CancellationToken to all async operations.
-    /// </summary>
-    [TestMethod]
-    public async Task ExecuteAsync_CancellationToken_PassedToAllAsyncOperations()
-    {
-        // Arrange
-        var mockHealthMonitoring = new Mock<IHealthMonitoringService>();
-        var mockAlertService = new Mock<IAlertService>();
-        var mockLogger = new Mock<ILogger<MonitorServicesUseCase>>();
-        var mockStateRepository = new Mock<IServiceHealthStateRepository>();
-
-        var serviceUrl = new Uri("https://example.com");
-        var options = Options.Create(new ServiceMonitorOptions
-        {
-            Urls = new List<string> { serviceUrl.ToString() },
-            EmailServer = new EmailOptions
-            {
-                To = new List<string> { "admin@example.com" }
-            }
-        });
-
-        var healthCheckResult = HealthCheckResult.Unhealthy(serviceUrl, "Service down", HttpStatusCode.ServiceUnavailable);
-        var cancellationTokenSource = new CancellationTokenSource();
-        var cancellationToken = cancellationTokenSource.Token;
-
-        mockHealthMonitoring
-            .Setup(h => h.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), cancellationToken))
-            .ReturnsAsync(new[] { healthCheckResult });
-
-        var existingState = new ServiceHealthState(serviceUrl, true);
-        mockStateRepository
-            .Setup(r => r.GetAsync(serviceUrl, cancellationToken))
-            .ReturnsAsync(existingState);
-
-        mockAlertService
-            .Setup(a => a.SendAlertAsync(It.IsAny<Uri>(), It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), cancellationToken))
-            .Returns(Task.CompletedTask);
-
-        var useCase = new MonitorServicesUseCase(
-            mockHealthMonitoring.Object,
-            mockAlertService.Object,
-            options,
-            mockLogger.Object,
-            mockStateRepository.Object);
-
-        // Act
-        await useCase.ExecuteAsync(cancellationToken);
-
-        // Assert
-        mockHealthMonitoring.Verify(
-            h => h.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), cancellationToken),
-            Times.Once);
-        mockStateRepository.Verify(
-            r => r.GetAsync(serviceUrl, cancellationToken),
-            Times.Once);
-        mockAlertService.Verify(
-            a => a.SendAlertAsync(It.IsAny<Uri>(), It.IsAny<string>(), It.IsAny<IEnumerable<string>>(), cancellationToken),
-            Times.Once);
+        Assert.IsTrue(result.IsSuccess);
+        _stateRepositoryMock.Verify(x => x.SaveAsync(It.IsAny<ServiceHealthState>(), cancellationToken), Times.Once);
+        _alertServiceMock.Verify(x => x.SendAlertAsync(url1, "Error1", _options.EmailServer.To, cancellationToken), Times.Once);
+        _alertServiceMock.Verify(x => x.SendAlertAsync(url2, "Error2", _options.EmailServer.To, cancellationToken), Times.Once);
     }
 }

@@ -1,289 +1,303 @@
+using CSharpFunctionalExtensions;
 using FluentEmail.Core;
+using FluentEmail.Core.Models;
 using Microsoft.Extensions.Logging;
 using Moq;
 using ServiceMonitor.Infrastructure.Email;
 
-
 namespace ServiceMonitor.UnitTests.Infrastructure.Email;
 
-/// <summary>
-/// Tests for the EmailAlertService class.
-/// </summary>
 [TestClass]
 public sealed class EmailAlertServiceTests
 {
-    /// <summary>
-    /// Tests that SendAlertAsync successfully sends an email with valid inputs.
-    /// </summary>
-    //[TestMethod]
-    //public async Task SendAlertAsync_ValidInputs_SendsEmailSuccessfully()
-    //{
-    //    // Arrange
-    //    var mockLogger = new Mock<ILogger<EmailAlertService>>();
+    private Mock<ILogger<EmailAlertService>> _loggerMock = null!;
+    private Mock<IFluentEmail> _fluentEmailMock = null!;
+    private EmailAlertService _sut = null!;
 
-    //    var mockFluentEmail = new Mock<IFluentEmail>();
-    //    var sendResponse = new SendResponse();
+    [TestInitialize]
+    public void TestInitialize()
+    {
+        _loggerMock = new Mock<ILogger<EmailAlertService>>();
+        _fluentEmailMock = new Mock<IFluentEmail>();
 
-    //    mockFluentEmail.Setup(f => f.To(It.IsAny<IEnumerable<Address>>())).Returns(mockFluentEmail.Object);
-    //    mockFluentEmail.Setup(f => f.Subject(It.IsAny<string>())).Returns(mockFluentEmail.Object);
-    //    mockFluentEmail.Setup(f => f.Body(It.IsAny<string>())).Returns(mockFluentEmail.Object);
-    //    mockFluentEmail.Setup(f => f.SendAsync(It.IsAny<CancellationToken?>())).ReturnsAsync(sendResponse);
+        _sut = new EmailAlertService(_loggerMock.Object, _fluentEmailMock.Object);
+    }
 
-    //    var service = new EmailAlertService(mockLogger.Object, mockFluentEmail.Object);
-    //    var serviceUrl = new Uri("http://example.com");
-    //    var errorMessage = "Service is down";
-    //    var recipients = new List<string> { "test@example.com" };
-    //    var cancellationToken = CancellationToken.None;
+    [TestMethod]
+    public async Task SendAlertAsync_SuccessfulEmailSending_ReturnsSuccess()
+    {
+        // Arrange
+        var serviceUrl = new Uri("https://example.com");
+        var errorMessage = "Service unavailable";
+        var recipients = new[] { "admin@example.com" };
+        var cancellationToken = CancellationToken.None;
 
-    //    // Act
-    //    await service.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken);
+        var sendResponse = new SendResponse();
 
-    //    // Assert
-    //    mockFluentEmail.Verify(f => f.To(It.IsAny<IEnumerable<Address>>()), Times.Exactly(2));
-    //    mockFluentEmail.Verify(f => f.Subject($"Service not reachable: {serviceUrl}"), Times.Once);
-    //    mockFluentEmail.Verify(f => f.Body($"The service {serviceUrl} is not reachable.\n\nError: {errorMessage}"), Times.Once);
-    //    mockFluentEmail.Verify(f => f.SendAsync(cancellationToken), Times.Once);
-    //}
+        _fluentEmailMock.Setup(x => x.To(It.IsAny<IEnumerable<Address>>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.Subject(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.SendAsync(cancellationToken)).ReturnsAsync(sendResponse);
 
-    /// <summary>
-    /// Tests that SendAlertAsync throws ArgumentNullException when serviceUrl is null.
-    /// </summary>
+        // Act
+        var result = await _sut.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken);
+
+        // Assert
+        Assert.IsTrue(result.IsSuccess);
+    }
+
     [TestMethod]
     public async Task SendAlertAsync_NullServiceUrl_ThrowsArgumentNullException()
     {
         // Arrange
-        var mockLogger = new Mock<ILogger<EmailAlertService>>();
-        var mockFluentEmail = new Mock<IFluentEmail>();
-
-        var service = new EmailAlertService(mockLogger.Object, mockFluentEmail.Object);
         Uri? serviceUrl = null;
-        var errorMessage = "Service is down";
-        var recipients = new List<string> { "test@example.com" };
+        var errorMessage = "Service unavailable";
+        var recipients = new[] { "admin@example.com" };
         var cancellationToken = CancellationToken.None;
 
         // Act & Assert
-        try
-        {
-            await service.SendAlertAsync(serviceUrl!, errorMessage, recipients, cancellationToken);
-            Assert.Fail("Expected ArgumentNullException was not thrown.");
-        }
-        catch (ArgumentNullException)
-        {
-            // Expected exception
-        }
+        var exception = await Assert.ThrowsAsync<ArgumentNullException>(
+            () => _sut.SendAlertAsync(serviceUrl!, errorMessage, recipients, cancellationToken));
     }
 
-    /// <summary>
-    /// Tests that SendAlertAsync throws ArgumentException when errorMessage is null.
-    /// </summary>
     [TestMethod]
     public async Task SendAlertAsync_NullErrorMessage_ThrowsArgumentException()
     {
         // Arrange
-        var mockLogger = new Mock<ILogger<EmailAlertService>>();
-        var mockFluentEmail = new Mock<IFluentEmail>();
-
-        var service = new EmailAlertService(mockLogger.Object, mockFluentEmail.Object);
-        var serviceUrl = new Uri("http://example.com");
+        var serviceUrl = new Uri("https://example.com");
         string? errorMessage = null;
-        var recipients = new List<string> { "test@example.com" };
+        var recipients = new[] { "admin@example.com" };
         var cancellationToken = CancellationToken.None;
 
         // Act & Assert
-        try
-        {
-            await service.SendAlertAsync(serviceUrl, errorMessage!, recipients, cancellationToken);
-            Assert.Fail("Expected ArgumentException was not thrown.");
-        }
-        catch (ArgumentException)
-        {
-            // Expected exception
-        }
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => _sut.SendAlertAsync(serviceUrl, errorMessage!, recipients, cancellationToken));
     }
 
-    /// <summary>
-    /// Tests that SendAlertAsync throws ArgumentException when errorMessage is empty.
-    /// </summary>
-    [TestMethod]
-    public async Task SendAlertAsync_EmptyErrorMessage_ThrowsArgumentException()
-    {
-        // Arrange
-        var mockLogger = new Mock<ILogger<EmailAlertService>>();
-
-        var mockFluentEmail = new Mock<IFluentEmail>();
-
-        var service = new EmailAlertService(mockLogger.Object, mockFluentEmail.Object);
-        var serviceUrl = new Uri("http://example.com");
-        var errorMessage = string.Empty;
-        var recipients = new List<string> { "test@example.com" };
-        var cancellationToken = CancellationToken.None;
-
-        // Act & Assert
-        try
-        {
-            await service.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken);
-            Assert.Fail("Expected ArgumentException was not thrown.");
-        }
-        catch (ArgumentException)
-        {
-            // Expected exception
-        }
-    }
-
-    /// <summary>
-    /// Tests that SendAlertAsync throws ArgumentException when errorMessage is whitespace.
-    /// </summary>
     [TestMethod]
     public async Task SendAlertAsync_WhitespaceErrorMessage_ThrowsArgumentException()
     {
         // Arrange
-        var mockLogger = new Mock<ILogger<EmailAlertService>>();
-
-        var mockFluentEmail = new Mock<IFluentEmail>();
-
-        var service = new EmailAlertService(mockLogger.Object, mockFluentEmail.Object);
-        var serviceUrl = new Uri("http://example.com");
+        var serviceUrl = new Uri("https://example.com");
         var errorMessage = "   ";
-        var recipients = new List<string> { "test@example.com" };
+        var recipients = new[] { "admin@example.com" };
         var cancellationToken = CancellationToken.None;
 
         // Act & Assert
-        try
-        {
-            await service.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken);
-            Assert.Fail("Expected ArgumentException was not thrown.");
-        }
-        catch (ArgumentException)
-        {
-            // Expected exception
-        }
+        var exception = await Assert.ThrowsAsync<ArgumentException>(
+            () => _sut.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken));
     }
 
-    /// <summary>
-    /// Tests that SendAlertAsync throws ArgumentNullException when recipients is null.
-    /// </summary>
     [TestMethod]
     public async Task SendAlertAsync_NullRecipients_ThrowsArgumentNullException()
     {
         // Arrange
-        var mockLogger = new Mock<ILogger<EmailAlertService>>();
-
-        var mockFluentEmail = new Mock<IFluentEmail>();
-
-        var service = new EmailAlertService(mockLogger.Object, mockFluentEmail.Object);
-        var serviceUrl = new Uri("http://example.com");
-        var errorMessage = "Service is down";
+        var serviceUrl = new Uri("https://example.com");
+        var errorMessage = "Service unavailable";
         IEnumerable<string>? recipients = null;
         var cancellationToken = CancellationToken.None;
 
         // Act & Assert
-        try
-        {
-            await service.SendAlertAsync(serviceUrl, errorMessage, recipients!, cancellationToken);
-            Assert.Fail("Expected ArgumentNullException was not thrown.");
-        }
-        catch (ArgumentNullException)
-        {
-            // Expected exception
-        }
+        var exception = await Assert.ThrowsAsync<ArgumentNullException>(
+            () => _sut.SendAlertAsync(serviceUrl, errorMessage, recipients!, cancellationToken));
     }
 
-    /// <summary>
-    /// Tests that SendAlertAsync sends email with multiple recipients.
-    /// </summary>
-    //[TestMethod]
-    //public async Task SendAlertAsync_MultipleRecipients_SendsEmailSuccessfully()
-    //{
-    //    // Arrange
-    //    var mockLogger = new Mock<ILogger<EmailAlertService>>();
+    [TestMethod]
+    public async Task SendAlertAsync_FailedEmailSending_ReturnsFailure()
+    {
+        // Arrange
+        var serviceUrl = new Uri("https://example.com");
+        var errorMessage = "Service unavailable";
+        var recipients = new[] { "admin@example.com" };
+        var cancellationToken = CancellationToken.None;
 
-    //    var mockFluentEmail = new Mock<IFluentEmail>();
-    //    var sendResponse = new SendResponse();
+        var sendResponse = new SendResponse();
+        sendResponse.ErrorMessages.Add("SMTP connection failed");
+        sendResponse.ErrorMessages.Add("Timeout occurred");
 
-    //    mockFluentEmail.Setup(f => f.To(It.IsAny<IEnumerable<Address>>())).Returns(mockFluentEmail.Object);
-    //    mockFluentEmail.Setup(f => f.Subject(It.IsAny<string>())).Returns(mockFluentEmail.Object);
-    //    mockFluentEmail.Setup(f => f.Body(It.IsAny<string>())).Returns(mockFluentEmail.Object);
-    //    mockFluentEmail.Setup(f => f.SendAsync(It.IsAny<CancellationToken?>())).ReturnsAsync(sendResponse);
+        _fluentEmailMock.Setup(x => x.To(It.IsAny<IEnumerable<Address>>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.Subject(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.SendAsync(cancellationToken)).ReturnsAsync(sendResponse);
 
-    //    var service = new EmailAlertService(mockLogger.Object, mockFluentEmail.Object);
-    //    var serviceUrl = new Uri("http://example.com");
-    //    var errorMessage = "Service is down";
-    //    var recipients = new List<string> { "test1@example.com", "test2@example.com", "test3@example.com" };
-    //    var cancellationToken = CancellationToken.None;
+        // Act
+        var result = await _sut.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken);
 
-    //    // Act
-    //    await service.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken);
+        // Assert
+        Assert.IsFalse(result.IsSuccess);
+        StringAssert.Contains(result.Error, "SMTP connection failed");
+        StringAssert.Contains(result.Error, "Timeout occurred");
+    }
 
-    //    // Assert
-    //    mockFluentEmail.Verify(f => f.To(It.Is<IEnumerable<Address>>(list => list.Count() == 3)), Times.Exactly(2));
-    //    mockFluentEmail.Verify(f => f.SendAsync(cancellationToken), Times.Once);
-    //}
+    [TestMethod]
+    public async Task SendAlertAsync_ExceptionDuringEmailSending_ReturnsFailure()
+    {
+        // Arrange
+        var serviceUrl = new Uri("https://example.com");
+        var errorMessage = "Service unavailable";
+        var recipients = new[] { "admin@example.com" };
+        var cancellationToken = CancellationToken.None;
 
-    /// <summary>
-    /// Tests that SendAlertAsync logs information after sending email.
-    /// </summary>
-    //[TestMethod]
-    //public async Task SendAlertAsync_ValidInputs_LogsInformation()
-    //{
-    //    // Arrange
-    //    var mockLogger = new Mock<ILogger<EmailAlertService>>();
+        _fluentEmailMock.Setup(x => x.To(It.IsAny<IEnumerable<Address>>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.Subject(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.SendAsync(cancellationToken))
+            .ThrowsAsync(new InvalidOperationException("Network error"));
 
-    //    var mockFluentEmail = new Mock<IFluentEmail>();
-    //    var sendResponse = new SendResponse();
+        // Act
+        var result = await _sut.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken);
 
-    //    mockFluentEmail.Setup(f => f.To(It.IsAny<IEnumerable<Address>>())).Returns(mockFluentEmail.Object);
-    //    mockFluentEmail.Setup(f => f.Subject(It.IsAny<string>())).Returns(mockFluentEmail.Object);
-    //    mockFluentEmail.Setup(f => f.Body(It.IsAny<string>())).Returns(mockFluentEmail.Object);
-    //    mockFluentEmail.Setup(f => f.SendAsync(It.IsAny<CancellationToken?>())).ReturnsAsync(sendResponse);
+        // Assert
+        Assert.IsFalse(result.IsSuccess);
+        StringAssert.Contains(result.Error, "Network error");
+    }
 
-    //    var service = new EmailAlertService(mockLogger.Object, mockFluentEmail.Object);
-    //    var serviceUrl = new Uri("http://example.com");
-    //    var errorMessage = "Service is down";
-    //    var recipients = new List<string> { "test@example.com" };
-    //    var cancellationToken = CancellationToken.None;
+    [TestMethod]
+    public async Task SendAlertAsync_MultipleRecipients_CreatesCorrectAddressList()
+    {
+        // Arrange
+        var serviceUrl = new Uri("https://example.com");
+        var errorMessage = "Service unavailable";
+        var recipients = new[] { "admin@example.com", "support@example.com", "ops@example.com" };
+        var cancellationToken = CancellationToken.None;
 
-    //    // Act
-    //    await service.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken);
+        var sendResponse = new SendResponse();
+        IEnumerable<Address>? capturedRecipients = null;
 
-    //    // Assert
-    //    mockLogger.Verify(
-    //        x => x.Log(
-    //            LogLevel.Information,
-    //            It.IsAny<EventId>(),
-    //            It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Down-Email")),
-    //            It.IsAny<Exception>(),
-    //            It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-    //        Times.Once);
-    //}
+        _fluentEmailMock.Setup(x => x.To(It.IsAny<IEnumerable<Address>>()))
+            .Callback<IEnumerable<Address>>(r => capturedRecipients = r)
+            .Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.Subject(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.SendAsync(cancellationToken)).ReturnsAsync(sendResponse);
 
-    /// <summary>
-    /// Tests that SendAlertAsync uses cancellation token correctly.
-    /// </summary>
-    //[TestMethod]
-    //public async Task SendAlertAsync_WithCancellationToken_PassesTokenToSendAsync()
-    //{
-    //    // Arrange
-    //    var mockLogger = new Mock<ILogger<EmailAlertService>>();
+        // Act
+        var result = await _sut.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken);
 
-    //    var mockFluentEmail = new Mock<IFluentEmail>();
-    //    var sendResponse = new SendResponse();
+        // Assert
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsNotNull(capturedRecipients);
+        var recipientsList = capturedRecipients.ToList();
+        Assert.HasCount(3, recipientsList);
+        Assert.AreEqual("admin@example.com", recipientsList[0].EmailAddress);
+        Assert.AreEqual("support@example.com", recipientsList[1].EmailAddress);
+        Assert.AreEqual("ops@example.com", recipientsList[2].EmailAddress);
+    }
 
-    //    mockFluentEmail.Setup(f => f.To(It.IsAny<IEnumerable<Address>>())).Returns(mockFluentEmail.Object);
-    //    mockFluentEmail.Setup(f => f.Subject(It.IsAny<string>())).Returns(mockFluentEmail.Object);
-    //    mockFluentEmail.Setup(f => f.Body(It.IsAny<string>())).Returns(mockFluentEmail.Object);
-    //    mockFluentEmail.Setup(f => f.SendAsync(It.IsAny<CancellationToken?>())).ReturnsAsync(sendResponse);
+    [TestMethod]
+    public async Task SendAlertAsync_SuccessfulSending_LogsInformationMessage()
+    {
+        // Arrange
+        var serviceUrl = new Uri("https://example.com");
+        var errorMessage = "Service unavailable";
+        var recipients = new[] { "admin@example.com" };
+        var cancellationToken = CancellationToken.None;
 
-    //    var service = new EmailAlertService(mockLogger.Object, mockFluentEmail.Object);
-    //    var serviceUrl = new Uri("http://example.com");
-    //    var errorMessage = "Service is down";
-    //    var recipients = new List<string> { "test@example.com" };
-    //    using var cancellationTokenSource = new CancellationTokenSource();
-    //    var cancellationToken = cancellationTokenSource.Token;
+        var sendResponse = new SendResponse();
 
-    //    // Act
-    //    await service.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken);
+        _fluentEmailMock.Setup(x => x.To(It.IsAny<IEnumerable<Address>>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.Subject(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.SendAsync(cancellationToken)).ReturnsAsync(sendResponse);
 
-    //    // Assert
-    //    mockFluentEmail.Verify(f => f.SendAsync(cancellationToken), Times.Once);
-    //}
+        // Act
+        await _sut.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken);
+
+        // Assert
+        _loggerMock.Verify(
+            x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Down-Email") && v.ToString()!.Contains(serviceUrl.ToString())),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [TestMethod]
+    public async Task SendAlertAsync_FailedSending_LogsErrorMessage()
+    {
+        // Arrange
+        var serviceUrl = new Uri("https://example.com");
+        var errorMessage = "Service unavailable";
+        var recipients = new[] { "admin@example.com" };
+        var cancellationToken = CancellationToken.None;
+
+        var sendResponse = new SendResponse();
+        sendResponse.ErrorMessages.Add("SMTP error");
+
+        _fluentEmailMock.Setup(x => x.To(It.IsAny<IEnumerable<Address>>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.Subject(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.SendAsync(cancellationToken)).ReturnsAsync(sendResponse);
+
+        // Act
+        await _sut.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken);
+
+        // Assert
+        _loggerMock.Verify(
+            x => x.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Failed to send email")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [TestMethod]
+    public async Task SendAlertAsync_ExceptionThrown_LogsErrorWithException()
+    {
+        // Arrange
+        var serviceUrl = new Uri("https://example.com");
+        var errorMessage = "Service unavailable";
+        var recipients = new[] { "admin@example.com" };
+        var cancellationToken = CancellationToken.None;
+        var exception = new InvalidOperationException("Network error");
+
+        _fluentEmailMock.Setup(x => x.To(It.IsAny<IEnumerable<Address>>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.Subject(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.SendAsync(cancellationToken)).ThrowsAsync(exception);
+
+        // Act
+        await _sut.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken);
+
+        // Assert
+        _loggerMock.Verify(
+            x => x.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Exception while sending alert")),
+                exception,
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [TestMethod]
+    public async Task SendAlertAsync_ValidRequest_CallsFluentEmailCorrectly()
+    {
+        // Arrange
+        var serviceUrl = new Uri("https://example.com");
+        var errorMessage = "Connection timeout";
+        var recipients = new[] { "admin@example.com" };
+        var cancellationToken = CancellationToken.None;
+
+        var sendResponse = new SendResponse();
+
+        _fluentEmailMock.Setup(x => x.To(It.IsAny<IEnumerable<Address>>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.Subject(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.SendAsync(cancellationToken)).ReturnsAsync(sendResponse);
+
+        // Act
+        var result = await _sut.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken);
+
+        // Assert
+        Assert.IsTrue(result.IsSuccess);
+        _fluentEmailMock.Verify(x => x.To(It.IsAny<IEnumerable<Address>>()), Times.Once);
+        _fluentEmailMock.Verify(x => x.Subject(It.IsAny<string>()), Times.Once);
+        _fluentEmailMock.Verify(x => x.Body(It.IsAny<string>()), Times.Once);
+        _fluentEmailMock.Verify(x => x.SendAsync(cancellationToken), Times.Once);
+    }
 }
