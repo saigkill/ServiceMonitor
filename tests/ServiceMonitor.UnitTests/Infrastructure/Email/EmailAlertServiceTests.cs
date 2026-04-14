@@ -299,7 +299,7 @@ public sealed class EmailAlertServiceTests
         Assert.IsTrue(result.IsSuccess);
         _fluentEmailMock.Verify(x => x.To(It.IsAny<IEnumerable<Address>>()), Times.Once);
         _fluentEmailMock.Verify(x => x.Subject(It.IsAny<string>()), Times.Once);
-        _fluentEmailMock.Verify(x => x.Body(It.IsAny<string>()), Times.Once);
-        _fluentEmailMock.Verify(x => x.SendAsync(cancellationToken), Times.Once);
+        _fluentEmailMock.Verify(x => x.Body(It.IsAny<string>(), It.IsAny<bool>()), Times.Once);
+        _fluentEmailMock.Verify(x => x.SendAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 }
