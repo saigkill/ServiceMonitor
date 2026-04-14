@@ -36,8 +36,10 @@ public sealed class EmailAlertServiceTests
 
         _fluentEmailMock.Setup(x => x.To(It.IsAny<IEnumerable<Address>>())).Returns(_fluentEmailMock.Object);
         _fluentEmailMock.Setup(x => x.Subject(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
-        _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
-        _fluentEmailMock.Setup(x => x.SendAsync(cancellationToken)).ReturnsAsync(sendResponse);
+        //_fluentEmailMock.Setup(x => x.Body(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
+        //_fluentEmailMock.Setup(x => x.SendAsync(cancellationToken)).ReturnsAsync(sendResponse);
+        _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>(), It.IsAny<bool>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.SendAsync(It.IsAny<CancellationToken>())).ReturnsAsync(sendResponse);
 
         // Act
         var result = await _sut.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken);
@@ -168,8 +170,8 @@ public sealed class EmailAlertServiceTests
             .Callback<IEnumerable<Address>>(r => capturedRecipients = r)
             .Returns(_fluentEmailMock.Object);
         _fluentEmailMock.Setup(x => x.Subject(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
-        _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
-        _fluentEmailMock.Setup(x => x.SendAsync(cancellationToken)).ReturnsAsync(sendResponse);
+        _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>(), It.IsAny<bool>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.SendAsync(It.IsAny<CancellationToken>())).ReturnsAsync(sendResponse);
 
         // Act
         var result = await _sut.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken);
@@ -197,8 +199,8 @@ public sealed class EmailAlertServiceTests
 
         _fluentEmailMock.Setup(x => x.To(It.IsAny<IEnumerable<Address>>())).Returns(_fluentEmailMock.Object);
         _fluentEmailMock.Setup(x => x.Subject(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
-        _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
-        _fluentEmailMock.Setup(x => x.SendAsync(cancellationToken)).ReturnsAsync(sendResponse);
+        _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>(), It.IsAny<bool>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.SendAsync(It.IsAny<CancellationToken>())).ReturnsAsync(sendResponse);
 
         // Act
         await _sut.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken);
@@ -228,8 +230,8 @@ public sealed class EmailAlertServiceTests
 
         _fluentEmailMock.Setup(x => x.To(It.IsAny<IEnumerable<Address>>())).Returns(_fluentEmailMock.Object);
         _fluentEmailMock.Setup(x => x.Subject(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
-        _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
-        _fluentEmailMock.Setup(x => x.SendAsync(cancellationToken)).ReturnsAsync(sendResponse);
+        _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>(), It.IsAny<bool>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.SendAsync(It.IsAny<CancellationToken>())).ReturnsAsync(sendResponse);
 
         // Act
         await _sut.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken);
@@ -257,8 +259,8 @@ public sealed class EmailAlertServiceTests
 
         _fluentEmailMock.Setup(x => x.To(It.IsAny<IEnumerable<Address>>())).Returns(_fluentEmailMock.Object);
         _fluentEmailMock.Setup(x => x.Subject(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
-        _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
-        _fluentEmailMock.Setup(x => x.SendAsync(cancellationToken)).ThrowsAsync(exception);
+        _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>(), It.IsAny<bool>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.SendAsync(It.IsAny<CancellationToken>())).ThrowsAsync(exception);
 
         // Act
         await _sut.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken);
@@ -287,8 +289,8 @@ public sealed class EmailAlertServiceTests
 
         _fluentEmailMock.Setup(x => x.To(It.IsAny<IEnumerable<Address>>())).Returns(_fluentEmailMock.Object);
         _fluentEmailMock.Setup(x => x.Subject(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
-        _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
-        _fluentEmailMock.Setup(x => x.SendAsync(cancellationToken)).ReturnsAsync(sendResponse);
+        _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>(), It.IsAny<bool>())).Returns(_fluentEmailMock.Object);
+        _fluentEmailMock.Setup(x => x.SendAsync(It.IsAny<CancellationToken>())).ReturnsAsync(sendResponse);
 
         // Act
         var result = await _sut.SendAlertAsync(serviceUrl, errorMessage, recipients, cancellationToken);
