@@ -32,8 +32,8 @@ public sealed class MonitorServicesUseCase(
             var isHealthy = result.IsHealthy;
 
             var stateResult = await stateRepository.GetAsync(url, cancellationToken).ConfigureAwait(false);
-            var state = stateResult.HasValue 
-                ? stateResult.Value 
+            var state = stateResult.HasValue
+                ? stateResult.Value
                 : new ServiceHealthState(url, isHealthy);
 
             state.Update(isHealthy);

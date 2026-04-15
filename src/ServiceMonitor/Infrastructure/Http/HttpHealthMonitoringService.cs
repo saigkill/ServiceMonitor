@@ -1,8 +1,12 @@
-using System.Net;
 using CSharpFunctionalExtensions;
+
 using Microsoft.Extensions.Logging;
+
 using ServiceMonitor.Application.DTOs;
 using ServiceMonitor.Application.Interfaces;
+
+using System.Globalization;
+using System.Net;
 
 namespace ServiceMonitor.Infrastructure.Http;
 
@@ -40,29 +44,29 @@ public sealed class HttpHealthMonitoringService(
 
             return new HealthCheckResult(
                 url,
-                response.IsSuccessStatusCode,
-                response.StatusCode,
-                response.IsSuccessStatusCode
+                IsHealthy: response.IsSuccessStatusCode,
+                StatusCode: response.StatusCode,
+                ErrorMessage: response.IsSuccessStatusCode
                     ? Maybe<string>.None
-                    : Maybe<string>.From($"HTTP {(int)response.StatusCode}"));
+                    : Maybe<string>.From($"HTTP {((int)response.StatusCode).ToString(CultureInfo.InvariantCulture)}"));
         }
         catch (HttpRequestException ex)
         {
             logger.LogWarning(ex, "HTTP request failed for {Url}", url);
             return new HealthCheckResult(
                 url,
-                false,
-                HttpStatusCode.ServiceUnavailable,
-                Maybe<string>.From(ex.Message));
+                IsHealthy: false,
+                StatusCode: HttpStatusCode.ServiceUnavailable,
+                ErrorMessage: Maybe<string>.From(ex.Message));
         }
         catch (TaskCanceledException ex)
         {
             logger.LogWarning(ex, "Request timeout for {Url}", url);
             return new HealthCheckResult(
                 url,
-                false,
-                HttpStatusCode.RequestTimeout,
-                Maybe<string>.From("Request timeout"));
+                IsHealthy: false,
+                StatusCode: HttpStatusCode.RequestTimeout,
+                ErrorMessage: Maybe<string>.From("Request timeout"));
         }
     }
 }

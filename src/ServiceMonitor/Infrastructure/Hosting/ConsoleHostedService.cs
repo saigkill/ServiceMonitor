@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
 using ServiceMonitor.Application.UseCases;
 using ServiceMonitor.Infrastructure.Configuration;
 
@@ -29,7 +30,7 @@ namespace ServiceMonitor.Infrastructure.Hosting
                     return;
                 }
 
-                logger.LogInformation("Starting in Daemon-Modus. Interval: {0} Minutes. Profile '{1}'", options.Value.System.DaemonIntervalMinutes, environment);
+                logger.LogInformation("Starting in Daemon-Modus. Interval: {IntervalMinutes} Minutes. Profile '{Environment}'", options.Value.System.DaemonIntervalMinutes, environment);
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     try

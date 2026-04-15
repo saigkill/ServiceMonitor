@@ -1,8 +1,11 @@
-using System.Collections.Concurrent;
 using Ardalis.GuardClauses;
+
 using CSharpFunctionalExtensions;
+
 using ServiceMonitor.Domain.Entities;
 using ServiceMonitor.Domain.Interfaces;
+
+using System.Collections.Concurrent;
 
 namespace ServiceMonitor.Infrastructure.Repositories;
 
@@ -15,8 +18,8 @@ public class InMemoryServiceHealthStateRepository : IServiceHealthStateRepositor
         Guard.Against.Null(url);
 
         return Task.FromResult(
-            _states.TryGetValue(url, out var state) 
-                ? Maybe<ServiceHealthState>.From(state) 
+            _states.TryGetValue(url, out var state)
+                ? Maybe<ServiceHealthState>.From(state)
                 : Maybe<ServiceHealthState>.None);
     }
 

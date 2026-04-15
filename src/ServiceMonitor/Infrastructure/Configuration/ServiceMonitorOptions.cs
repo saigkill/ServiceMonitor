@@ -38,6 +38,6 @@ namespace ServiceMonitor.Infrastructure.Configuration
     public enum RunMode
     {
         Once,
-        Daemon
+        Daemon,
     }
 }

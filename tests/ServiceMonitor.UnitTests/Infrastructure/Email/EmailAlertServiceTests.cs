@@ -1,8 +1,12 @@
 using CSharpFunctionalExtensions;
+
 using FluentEmail.Core;
 using FluentEmail.Core.Models;
+
 using Microsoft.Extensions.Logging;
+
 using Moq;
+
 using ServiceMonitor.Infrastructure.Email;
 
 namespace ServiceMonitor.UnitTests.Infrastructure.Email;
@@ -36,8 +40,6 @@ public sealed class EmailAlertServiceTests
 
         _fluentEmailMock.Setup(x => x.To(It.IsAny<IEnumerable<Address>>())).Returns(_fluentEmailMock.Object);
         _fluentEmailMock.Setup(x => x.Subject(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
-        //_fluentEmailMock.Setup(x => x.Body(It.IsAny<string>())).Returns(_fluentEmailMock.Object);
-        //_fluentEmailMock.Setup(x => x.SendAsync(cancellationToken)).ReturnsAsync(sendResponse);
         _fluentEmailMock.Setup(x => x.Body(It.IsAny<string>(), It.IsAny<bool>())).Returns(_fluentEmailMock.Object);
         _fluentEmailMock.Setup(x => x.SendAsync(It.IsAny<CancellationToken>())).ReturnsAsync(sendResponse);
 
@@ -127,8 +129,8 @@ public sealed class EmailAlertServiceTests
 
         // Assert
         Assert.IsFalse(result.IsSuccess);
-        StringAssert.Contains(result.Error, "SMTP connection failed");
-        StringAssert.Contains(result.Error, "Timeout occurred");
+        Assert.Contains("SMTP connection failed", result.Error);
+        Assert.Contains("Timeout occurred", result.Error);
     }
 
     [TestMethod]
@@ -151,7 +153,7 @@ public sealed class EmailAlertServiceTests
 
         // Assert
         Assert.IsFalse(result.IsSuccess);
-        StringAssert.Contains(result.Error, "Network error");
+        Assert.Contains("Network error", result.Error);
     }
 
     [TestMethod]

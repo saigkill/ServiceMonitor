@@ -1,8 +1,11 @@
 using CSharpFunctionalExtensions;
+
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
 using Moq;
+
 using ServiceMonitor.Application.DTOs;
 using ServiceMonitor.Application.Interfaces;
 using ServiceMonitor.Application.UseCases;
@@ -15,6 +18,8 @@ namespace ServiceMonitor.UnitTests.Infrastructure.Hosting;
 [TestClass]
 public sealed class ConsoleHostedServiceTests
 {
+    public TestContext TestContext { get; set; } = null!;
+
     private Mock<ILogger<ConsoleHostedService>> _loggerMock = null!;
     private Mock<IHostApplicationLifetime> _appLifetimeMock = null!;
     private Mock<IHealthMonitoringService> _healthMonitoringServiceMock = null!;
@@ -73,7 +78,7 @@ public sealed class ConsoleHostedServiceTests
             .ReturnsAsync(Result.Success(Enumerable.Empty<HealthCheckResult>()));
 
         // Act
-        await _sut.StartAsync(CancellationToken.None);
+        await _sut.StartAsync(TestContext.CancellationToken);
 
         // Assert
         _appLifetimeMock.Verify(x => x.StopApplication(), Times.Once);
@@ -91,7 +96,7 @@ public sealed class ConsoleHostedServiceTests
             .ReturnsAsync(Result.Failure<IEnumerable<HealthCheckResult>>(errorMessage));
 
         // Act
-        await _sut.StartAsync(CancellationToken.None);
+        await _sut.StartAsync(TestContext.CancellationToken);
 
         // Assert
         _loggerMock.Verify(
@@ -116,8 +121,8 @@ public sealed class ConsoleHostedServiceTests
             .Setup(x => x.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success(Enumerable.Empty<HealthCheckResult>()));
 
-        var cts = new CancellationTokenSource();
-        cts.Cancel();
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
 
         // Act
         await _sut.StartAsync(cts.Token);
@@ -152,12 +157,11 @@ public sealed class ConsoleHostedServiceTests
                 return Result.Failure<IEnumerable<HealthCheckResult>>(errorMessage);
             });
 
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
         var startTask = Task.Run(() => _sut.StartAsync(cts.Token));
 
         // Wait for at least one execution
-        await Task.Delay(100);
-        cts.Cancel();
+        await Task.Delay(100, cts.Token);
 
         try
         {
@@ -197,12 +201,11 @@ public sealed class ConsoleHostedServiceTests
                 throw new InvalidOperationException("Test exception");
             });
 
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
         var startTask = Task.Run(() => _sut.StartAsync(cts.Token));
 
         // Wait for at least one execution
-        await Task.Delay(100);
-        cts.Cancel();
+        await Task.Delay(100, cts.Token);
 
         try
         {
@@ -236,8 +239,7 @@ public sealed class ConsoleHostedServiceTests
             .Setup(x => x.MonitorServicesAsync(It.IsAny<IEnumerable<Uri>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success(Enumerable.Empty<HealthCheckResult>()));
 
-        var cts = new CancellationTokenSource();
-        cts.Cancel();
+        using var cts = new CancellationTokenSource();
 
         // Act
         await _sut.StartAsync(cts.Token);
@@ -265,7 +267,7 @@ public sealed class ConsoleHostedServiceTests
         _optionsMock.Setup(x => x.Value).Returns((ServiceMonitorOptions)null!);
 
         // Act
-        await _sut.StartAsync(CancellationToken.None);
+        await _sut.StartAsync(TestContext.CancellationToken);
 
         // Assert
         _loggerMock.Verify(
@@ -284,7 +286,7 @@ public sealed class ConsoleHostedServiceTests
     {
         // Arrange
         // Act
-        var result = _sut.StopAsync(CancellationToken.None);
+        var result = _sut.StopAsync(TestContext.CancellationToken);
 
         // Assert
         await result;
