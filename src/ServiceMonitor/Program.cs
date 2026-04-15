@@ -82,16 +82,10 @@ internal static class Program
                     // Nothing needed - just to have hostingContext
                 });
 
-                webBuilder.Configure((context, app) =>
-                {
-                    ConfigureWebApplication(context, app, isFirstRun);
-                });
+                webBuilder.Configure((context, app) => ConfigureWebApplication(context, app, isFirstRun));
             })
             .ConfigureAppConfiguration(ConfigureApp)
-            .ConfigureServices((context, services) =>
-            {
-                ConfigureApplicationServices(context, services, isFirstRun);
-            })
+            .ConfigureServices((context, services) => ConfigureApplicationServices(context, services, isFirstRun))
             .ConfigureLogging(logging =>
             {
                 logging.ClearProviders();
@@ -143,10 +137,7 @@ internal static class Program
         app.UseStaticFiles();
         app.UseRouting();
 
-        app.UseEndpoints(endpoints =>
-        {
-            ConfigureApiEndpoints(endpoints);
-        });
+        app.UseEndpoints(endpoints => ConfigureApiEndpoints(endpoints));
 
         if (isFirstRun)
         {
@@ -221,9 +212,9 @@ internal static class Program
 
     private static void ConfigureApiEndpoints(IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGet("/api/config", HandleGetConfig);
-        endpoints.MapPost("/api/config", HandlePostConfig);
-        endpoints.MapGet("/api/status", HandleGetStatus);
+        endpoints.MapGet("/api/config", (Delegate)HandleGetConfig);
+        endpoints.MapPost("/api/config", (Delegate)HandlePostConfig);
+        endpoints.MapGet("/api/status", (Delegate)HandleGetStatus);
     }
 
     private static IResult HandleGetConfig(IOptions<ServiceMonitorOptions> options)
