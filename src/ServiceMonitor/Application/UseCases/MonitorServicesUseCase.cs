@@ -1,3 +1,4 @@
+using CSharpFunctionalExtensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ServiceMonitor.Application.Interfaces;
@@ -14,17 +15,26 @@ public sealed class MonitorServicesUseCase(
     ILogger<MonitorServicesUseCase> logger,
     IServiceHealthStateRepository stateRepository)
 {
-    public async Task ExecuteAsync(CancellationToken cancellationToken)
+    public async Task<Result> ExecuteAsync(CancellationToken cancellationToken)
     {
         var urls = options.Value.Urls.Select(u => new Uri(u));
-        var results = await healthMonitoring.MonitorServicesAsync(urls, cancellationToken).ConfigureAwait(false);
+        var resultsResult = await healthMonitoring.MonitorServicesAsync(urls, cancellationToken).ConfigureAwait(false);
 
-        foreach (var result in results)
+        if (resultsResult.IsFailure)
+        {
+            logger.LogError("Health monitoring failed: {Error}", resultsResult.Error);
+            return Result.Failure(resultsResult.Error);
+        }
+
+        foreach (var result in resultsResult.Value)
         {
             var url = result.ServiceUrl;
             var isHealthy = result.IsHealthy;
 
-            var state = await stateRepository.GetAsync(url, cancellationToken).ConfigureAwait(false) ?? new ServiceHealthState(url, isHealthy);
+            var stateResult = await stateRepository.GetAsync(url, cancellationToken).ConfigureAwait(false);
+            var state = stateResult.HasValue
+                ? stateResult.Value
+                : new ServiceHealthState(url, isHealthy);
 
             state.Update(isHealthy);
 
@@ -32,20 +42,35 @@ public sealed class MonitorServicesUseCase(
             {
                 if (!state.AlertSent)
                 {
-                    await alertService.SendAlertAsync(
+                    var alertResult = await alertService.SendAlertAsync(
                         result.ServiceUrl,
-                        result.ErrorMessage ?? "Unknown error",
+                        result.ErrorMessage.GetValueOrDefault("Unknown error"),
                         options.Value.EmailServer.To,
                         cancellationToken).ConfigureAwait(false);
+
+                    if (alertResult.IsFailure)
+                    {
+                        logger.LogError("Failed to send alert for {Url}: {Error}", result.ServiceUrl, alertResult.Error);
+                        continue;
+                    }
+
                     state.MarkAlertSent();
-                    logger.LogError("Down-Mail sent for {0} with status: {1}", result.ServiceUrl, result.StatusCode);
+                    logger.LogError("Down-Mail sent for {Url} with status: {Status}", result.ServiceUrl, result.StatusCode);
                 }
 
                 logger.LogInformation(
-                    "Service {Url} returned status {Status}. Down-Mail already sent.Interfaces",
+                    "Service {Url} returned status {Status}. Down-Mail already sent.",
                     result.ServiceUrl,
                     result.StatusCode);
             }
+
+            var saveResult = await stateRepository.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+            if (saveResult.IsFailure)
+            {
+                logger.LogError("Failed to save state for {Url}: {Error}", url, saveResult.Error);
+            }
         }
+
+        return Result.Success();
     }
 }

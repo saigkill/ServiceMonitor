@@ -1,58 +1,168 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
-using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
-using Ardalis.GuardClauses;
-using Microsoft.Extensions.Options;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using CSharpFunctionalExtensions;
+using Microsoft.Extensions.Logging;
 using Moq;
 using ServiceMonitor.Application.DTOs;
-using ServiceMonitor.Infrastructure.Configuration;
 using ServiceMonitor.Infrastructure.Http;
 
+namespace ServiceMonitor.UnitTests.Infrastructure.Http;
 
-namespace ServiceMonitor.Infrastructure.Http.UnitTests;
-
-/// <summary>
-/// Tests for the HttpHealthMonitoringService class.
-/// </summary>
 [TestClass]
 public sealed class HttpHealthMonitoringServiceTests
 {
-    /// <summary>
-    /// Tests that MonitorServicesAsync returns empty results when serviceUrls is empty.
-    /// </summary>
-    [TestMethod]
-    public async Task MonitorServicesAsync_EmptyServiceUrls_ReturnsEmptyResults()
+    private Mock<IHttpClientFactory> _httpClientFactoryMock = null!;
+    private Mock<ILogger<HttpHealthMonitoringService>> _loggerMock = null!;
+    private HttpHealthMonitoringService _sut = null!;
+
+    [TestInitialize]
+    public void TestInitialize()
     {
-        // Arrange
-        var mockHttpClient = new Mock<HttpClient>();
-        var mockHttpClientFactory = new Mock<IHttpClientFactory>();
-        mockHttpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(mockHttpClient.Object);
+        _httpClientFactoryMock = new Mock<IHttpClientFactory>();
+        _loggerMock = new Mock<ILogger<HttpHealthMonitoringService>>();
 
-        var serviceMonitorOptions = new ServiceMonitorOptions
-        {
-            System = new ServiceMonitor.Infrastructure.Configuration.System
-            {
-                TimeoutSeconds = 30
-            }
-        };
-        var mockOptions = new Mock<IOptions<ServiceMonitorOptions>>();
-        mockOptions.Setup(o => o.Value).Returns(serviceMonitorOptions);
-
-        var service = new HttpHealthMonitoringService(mockHttpClientFactory.Object, mockOptions.Object);
-        var serviceUrls = Enumerable.Empty<Uri>();
-        var cancellationToken = CancellationToken.None;
-
-        // Act
-        var results = await service.MonitorServicesAsync(serviceUrls, cancellationToken);
-
-        // Assert
-        Assert.IsNotNull(results);
-        Assert.AreEqual(0, results.Count());
+        _sut = new HttpHealthMonitoringService(
+            _httpClientFactoryMock.Object,
+            _loggerMock.Object);
     }
 
+    [TestMethod]
+    public async Task MonitorServicesAsync_WithValidUrls_ReturnsSuccess()
+    {
+        // Arrange
+        var urls = new[] { new Uri("https://example.com"), new Uri("https://test.com") };
+        var cancellationToken = CancellationToken.None;
+
+        var mockHttpMessageHandler = new MockHttpMessageHandler();
+        mockHttpMessageHandler.AddResponse(new Uri("https://example.com"), HttpStatusCode.OK);
+        mockHttpMessageHandler.AddResponse(new Uri("https://test.com"), HttpStatusCode.OK);
+
+        var httpClient = new HttpClient(mockHttpMessageHandler);
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        // Act
+        var result = await _sut.MonitorServicesAsync(urls, cancellationToken);
+
+        // Assert
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsNotNull(result.Value);
+        Assert.AreEqual(2, result.Value.Count());
+    }
+
+    [TestMethod]
+    public async Task MonitorServicesAsync_WithEmptyUrls_ReturnsSuccess()
+    {
+        // Arrange
+        var urls = Array.Empty<Uri>();
+        var cancellationToken = CancellationToken.None;
+
+        var httpClient = new HttpClient(new MockHttpMessageHandler());
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        // Act
+        var result = await _sut.MonitorServicesAsync(urls, cancellationToken);
+
+        // Assert
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsNotNull(result.Value);
+        Assert.AreEqual(0, result.Value.Count());
+    }
+
+    [TestMethod]
+    public async Task MonitorServicesAsync_WhenExceptionOccurs_ReturnsFailure()
+    {
+        // Arrange
+        var urls = new[] { new Uri("https://example.com") };
+        var cancellationToken = CancellationToken.None;
+        var expectedException = new InvalidOperationException("Test exception");
+
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Throws(expectedException);
+
+        // Act
+        var result = await _sut.MonitorServicesAsync(urls, cancellationToken);
+
+        // Assert
+        Assert.IsTrue(result.IsFailure);
+        Assert.AreEqual("Monitoring failed: Test exception", result.Error);
+        _loggerMock.Verify(
+            x => x.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Failed to monitor services")),
+                expectedException,
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [TestMethod]
+    public async Task MonitorServicesAsync_WithSingleUrl_ReturnsSuccess()
+    {
+        // Arrange
+        var urls = new[] { new Uri("https://example.com") };
+        var cancellationToken = CancellationToken.None;
+
+        var mockHttpMessageHandler = new MockHttpMessageHandler();
+        mockHttpMessageHandler.AddResponse(new Uri("https://example.com"), HttpStatusCode.OK);
+
+        var httpClient = new HttpClient(mockHttpMessageHandler);
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        // Act
+        var result = await _sut.MonitorServicesAsync(urls, cancellationToken);
+
+        // Assert
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsNotNull(result.Value);
+        Assert.AreEqual(1, result.Value.Count());
+    }
+
+    [TestMethod]
+    public async Task MonitorServicesAsync_WithMixedStatusCodes_ReturnsSuccess()
+    {
+        // Arrange
+        var urls = new[]
+        {
+            new Uri("https://example.com"),
+            new Uri("https://test.com"),
+            new Uri("https://fail.com")
+        };
+        var cancellationToken = CancellationToken.None;
+
+        var mockHttpMessageHandler = new MockHttpMessageHandler();
+        mockHttpMessageHandler.AddResponse(new Uri("https://example.com"), HttpStatusCode.OK);
+        mockHttpMessageHandler.AddResponse(new Uri("https://test.com"), HttpStatusCode.InternalServerError);
+        mockHttpMessageHandler.AddResponse(new Uri("https://fail.com"), HttpStatusCode.NotFound);
+
+        var httpClient = new HttpClient(mockHttpMessageHandler);
+        _httpClientFactoryMock.Setup(x => x.CreateClient(It.IsAny<string>())).Returns(httpClient);
+
+        // Act
+        var result = await _sut.MonitorServicesAsync(urls, cancellationToken);
+
+        // Assert
+        Assert.IsTrue(result.IsSuccess);
+        Assert.IsNotNull(result.Value);
+        Assert.AreEqual(3, result.Value.Count());
+    }
+
+    private sealed class MockHttpMessageHandler : HttpMessageHandler
+    {
+        private readonly Dictionary<Uri, HttpStatusCode> _responses = new();
+
+        public void AddResponse(Uri uri, HttpStatusCode statusCode)
+        {
+            _responses[uri] = statusCode;
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            if (request.RequestUri != null && _responses.TryGetValue(request.RequestUri, out var statusCode))
+            {
+                return Task.FromResult(new HttpResponseMessage(statusCode));
+            }
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        }
+    }
 }

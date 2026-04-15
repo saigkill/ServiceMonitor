@@ -1,46 +1,72 @@
-using Ardalis.GuardClauses;
-using Microsoft.Extensions.Options;
+using CSharpFunctionalExtensions;
+
+using Microsoft.Extensions.Logging;
+
 using ServiceMonitor.Application.DTOs;
 using ServiceMonitor.Application.Interfaces;
-using ServiceMonitor.Infrastructure.Configuration;
+
+using System.Globalization;
+using System.Net;
 
 namespace ServiceMonitor.Infrastructure.Http;
 
 public sealed class HttpHealthMonitoringService(
     IHttpClientFactory httpClientFactory,
-    IOptions<ServiceMonitorOptions> options) : IHealthMonitoringService
+    ILogger<HttpHealthMonitoringService> logger) : IHealthMonitoringService
 {
-    public async Task<IEnumerable<HealthCheckResult>> MonitorServicesAsync(
-        IEnumerable<Uri> serviceUrls,
+    public async Task<Result<IEnumerable<HealthCheckResult>>> MonitorServicesAsync(
+        IEnumerable<Uri> urls,
         CancellationToken cancellationToken)
     {
-        Guard.Against.Null(serviceUrls);
-        Guard.Against.Null(httpClientFactory);
-        using var httpClient = httpClientFactory.CreateClient();
-        httpClient.Timeout = TimeSpan.FromSeconds(options.Value.System.TimeoutSeconds);
+        try
+        {
+            var client = httpClientFactory.CreateClient();
+            var tasks = urls.Select(url => CheckUrlAsync(client, url, cancellationToken));
+            var results = await Task.WhenAll(tasks).ConfigureAwait(false);
 
-        var tasks = serviceUrls.Select(url => CheckServiceAsync(httpClient, url, cancellationToken));
-        return await Task.WhenAll(tasks).ConfigureAwait(false);
+            return Result.Success(results.AsEnumerable());
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to monitor services: {Message}", ex.Message);
+            return Result.Failure<IEnumerable<HealthCheckResult>>($"Monitoring failed: {ex.Message}");
+        }
     }
 
-    private static async Task<HealthCheckResult> CheckServiceAsync(
+    private async Task<HealthCheckResult> CheckUrlAsync(
         HttpClient client,
         Uri url,
         CancellationToken cancellationToken)
     {
-        Guard.Against.Null(client);
-        Guard.Against.Null(url);
         try
         {
             var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
 
-            return response.IsSuccessStatusCode
-                ? HealthCheckResult.Healthy(url, response.StatusCode)
-                : HealthCheckResult.Unhealthy(url, $"Status: {response.StatusCode}", response.StatusCode);
+            return new HealthCheckResult(
+                url,
+                IsHealthy: response.IsSuccessStatusCode,
+                StatusCode: response.StatusCode,
+                ErrorMessage: response.IsSuccessStatusCode
+                    ? Maybe<string>.None
+                    : Maybe<string>.From($"HTTP {((int)response.StatusCode).ToString(CultureInfo.InvariantCulture)}"));
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
-            return HealthCheckResult.Unhealthy(url, ex.Message);
+            logger.LogWarning(ex, "HTTP request failed for {Url}", url);
+            return new HealthCheckResult(
+                url,
+                IsHealthy: false,
+                StatusCode: HttpStatusCode.ServiceUnavailable,
+                ErrorMessage: Maybe<string>.From(ex.Message));
+        }
+        catch (TaskCanceledException ex)
+        {
+            logger.LogWarning(ex, "Request timeout for {Url}", url);
+            return new HealthCheckResult(
+                url,
+                IsHealthy: false,
+                StatusCode: HttpStatusCode.RequestTimeout,
+                ErrorMessage: Maybe<string>.From("Request timeout"));
         }
     }
 }

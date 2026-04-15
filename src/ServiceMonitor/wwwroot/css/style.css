@@ -8,7 +8,7 @@
     --light-bg: #f8f9fa;
     --border-color: #dee2e6;
     --text-color: #212529;
-    --text-muted: #495057;
+    --text-muted: #3d4349;  /* Changed from #495057 to darker shade for better contrast */
 }
 
 * {
@@ -272,7 +272,7 @@ footer {
     background: var(--light-bg);
     padding: 20px;
     text-align: center;
-    color: var(--text-muted);
+    color: #212529;  /* Changed from var(--text-muted) to var(--text-color) equivalent */
     font-size: 0.9rem;
 }
 

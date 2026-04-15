@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
 using ServiceMonitor.Application.UseCases;
 using ServiceMonitor.Infrastructure.Configuration;
 
@@ -21,16 +22,24 @@ namespace ServiceMonitor.Infrastructure.Hosting
 
                 if (options.Value.System.RunMode == RunMode.Once)
                 {
-                    await monitorServiceUseCase.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                    var result = await monitorServiceUseCase.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                    if (result.IsFailure)
+                    {
+                        logger.LogError("Monitoring execution failed: {Error}", result.Error);
+                    }
                     return;
                 }
 
-                logger.LogInformation("Starting in Daemon-Modus. Interval: {0} Minutes. Profile '{1}'", options.Value.System.DaemonIntervalMinutes, environment);
+                logger.LogInformation("Starting in Daemon-Modus. Interval: {IntervalMinutes} Minutes. Profile '{Environment}'", options.Value.System.DaemonIntervalMinutes, environment);
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     try
                     {
-                        await monitorServiceUseCase.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                        var result = await monitorServiceUseCase.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                        if (result.IsFailure)
+                        {
+                            logger.LogError("Monitoring execution failed: {Error}", result.Error);
+                        }
                     }
                     catch (Exception ex)
                     {

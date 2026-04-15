@@ -47,7 +47,7 @@ Goals:
 - We use English as the primary language for code, comments, and documentation to ensure broader understanding and collaboration. All class, method, and variable names should be in English.
 - We using a LINQ Select instead of a foreach loop if its possible.
 - We using CancellationToken in all async methods to allow for graceful shutdown and better resource management.
-- Is possible, we are using Fluent.Results to represent the outcome of operations, especially when there are multiple possible failure reasons. This allows us to provide more detailed feedback and handle errors in a more structured way.
+- Is possible, we are using CSharpFunctionalExtensions for Result<T> patterns to handle errors in a more functional way, avoiding exceptions for expected error conditions and improving code readability. Also we are using Maybe<T> for optional values to avoid null references and make the intent of optionality clear in the code.
 
 ---
 

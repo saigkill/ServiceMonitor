@@ -1,18 +1,22 @@
-using System.Diagnostics;
-using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Json;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
 using NLog.Extensions.Logging;
+
 using ServiceMonitor.Infrastructure.Configuration;
 using ServiceMonitor.Infrastructure.Hosting;
+
+using System.Diagnostics;
+using System.Text.Json;
 
 namespace ServiceMonitor;
 
@@ -30,7 +34,15 @@ internal static class Program
     {
         PropertyNameCaseInsensitive = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
+    };
+
+    private static readonly JsonSerializerOptions IndentedJsonOptions = new JsonSerializerOptions
+    {
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = true,
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
     };
 
     static async Task Main(string[] args)
@@ -40,18 +52,28 @@ internal static class Program
 
         if (isFirstRun)
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("╔════════════════════════════════════════════════════════════╗");
-            Console.WriteLine("║                   FIRST RUN DETECTED                       ║");
-            Console.WriteLine("╚════════════════════════════════════════════════════════════╝");
-            Console.ResetColor();
-            Console.WriteLine();
-            Console.WriteLine("ServiceMonitor needs to be configured before first use.");
-            Console.WriteLine("Opening configuration UI in your browser...");
-            Console.WriteLine();
+            PrintFirstRunMessage();
         }
 
-        await Host.CreateDefaultBuilder(args)
+        await CreateAndRunHost(args, isFirstRun).ConfigureAwait(false);
+    }
+
+    private static void PrintFirstRunMessage()
+    {
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine("╔════════════════════════════════════════════════════════════╗");
+        Console.WriteLine("║                   FIRST RUN DETECTED                       ║");
+        Console.WriteLine("╚════════════════════════════════════════════════════════════╝");
+        Console.ResetColor();
+        Console.WriteLine();
+        Console.WriteLine("ServiceMonitor needs to be configured before first use.");
+        Console.WriteLine("Opening configuration UI in your browser...");
+        Console.WriteLine();
+    }
+
+    private static Task CreateAndRunHost(string[] args, bool isFirstRun)
+    {
+        return Host.CreateDefaultBuilder(args)
             .ConfigureWebHostDefaults(webBuilder =>
             {
                 webBuilder.UseKestrel();
@@ -62,111 +84,86 @@ internal static class Program
 
                 webBuilder.Configure((context, app) =>
                 {
-                    var port = context.Configuration["System:WebUiPort"] ?? "8080";
-
-                    // Set addresses via IServerAddressesFeature
-                    var addressesFeature = app.ServerFeatures.Get<IServerAddressesFeature>();
-                    if (addressesFeature != null)
-                    {
-                        addressesFeature.Addresses.Clear();
-                        addressesFeature.Addresses.Add($"http://*:{port}");
-                    }
-
-                    app.UseStaticFiles();
-                    app.UseRouting();
-
-                    app.UseEndpoints(endpoints =>
-                    {
-                        endpoints.MapGet("/api/config",
-                            (IOptions<ServiceMonitorOptions> options) =>
-                                Results.Json(options.Value, JsonOptions));
-
-                        endpoints.MapPost("/api/config",
-                            async (HttpContext ctx) =>
-                            {
-                                var newConfig = await ctx.Request.ReadFromJsonAsync<ServiceMonitorOptions>(JsonOptions).ConfigureAwait(false);
-
-                                if (newConfig == null)
-                                {
-                                    return Results.BadRequest("Invalid configuration data");
-                                }
-
-                                // Validate configuration
-                                if (!ValidateConfiguration(newConfig, out var validationError))
-                                {
-                                    return Results.BadRequest(validationError);
-                                }
-
-                                // Serialize with PascalCase for C# compatibility
-                                var json = JsonSerializer.Serialize(newConfig, new JsonSerializerOptions
-                                {
-                                    WriteIndented = true,
-                                    Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
-                                });
-                                await File.WriteAllTextAsync(UserConfigPath, json).ConfigureAwait(false);
-
-                                Console.ForegroundColor = ConsoleColor.Green;
-                                Console.WriteLine("✓ Configuration saved successfully!");
-                                Console.ResetColor();
-                                Console.WriteLine("Please restart ServiceMonitor for changes to take effect.");
-
-                                return Results.Ok(new { message = "Configuration saved. Please restart the application." });
-                            });
-
-                        endpoints.MapGet("/api/status",
-                            () => Results.Ok(new
-                            {
-                                configured = File.Exists(UserConfigPath),
-                                version = "1.1.1"
-                            }));
-                    });
-
-                    // Open browser on first run after app has started
-                    if (isFirstRun)
-                    {
-                        var lifetime = app.ApplicationServices.GetRequiredService<IHostApplicationLifetime>();
-                        lifetime.ApplicationStarted.Register(() =>
-                        {
-                            var url = $"http://localhost:{port}/index.html";
-                            Console.WriteLine($"Configuration UI available at: {url}");
-                            Console.WriteLine();
-                            OpenBrowser(url);
-                        });
-                    }
+                    ConfigureWebApplication(context, app, isFirstRun);
                 });
             })
             .ConfigureAppConfiguration(ConfigureApp)
             .ConfigureServices((context, services) =>
             {
-                // Only add monitoring service if configuration exists and is valid
-                if (!isFirstRun)
-                {
-                    services.AddHostedService<ConsoleHostedService>();
-                    services.AddServiceMonitoring(context.Configuration);
-                }
-                else
-                {
-                    Console.ForegroundColor = ConsoleColor.Cyan;
-                    Console.WriteLine("Running in SETUP MODE - monitoring disabled until configured.");
-                    Console.ResetColor();
-                    Console.WriteLine("Press Ctrl+C to exit after configuration is complete.");
-                    Console.WriteLine();
-                }
-
-                // Configure JSON options for API endpoints
-                services.Configure<JsonOptions>(options =>
-                {
-                    options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-                    options.SerializerOptions.PropertyNameCaseInsensitive = true;
-                    options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
-                });
+                ConfigureApplicationServices(context, services, isFirstRun);
             })
             .ConfigureLogging(logging =>
             {
                 logging.ClearProviders();
                 logging.AddNLog();
             })
-            .RunConsoleAsync().ConfigureAwait(false);
+            .RunConsoleAsync();
+    }
+
+    private static void ConfigureApplicationServices(HostBuilderContext context, IServiceCollection services, bool isFirstRun)
+    {
+        if (!isFirstRun)
+        {
+            services.AddHostedService<ConsoleHostedService>();
+            services.AddServiceMonitoring(context.Configuration);
+        }
+        else
+        {
+            PrintSetupModeMessage();
+        }
+
+        services.Configure<JsonOptions>(options =>
+        {
+            options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+            options.SerializerOptions.PropertyNameCaseInsensitive = true;
+            options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+        });
+    }
+
+    private static void PrintSetupModeMessage()
+    {
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("Running in SETUP MODE - monitoring disabled until configured.");
+        Console.ResetColor();
+        Console.WriteLine("Press Ctrl+C to exit after configuration is complete.");
+        Console.WriteLine();
+    }
+
+    private static void ConfigureWebApplication(WebHostBuilderContext context, IApplicationBuilder app, bool isFirstRun)
+    {
+        var port = context.Configuration["System:WebUiPort"] ?? "8080";
+
+        var addressesFeature = app.ServerFeatures.Get<IServerAddressesFeature>();
+        if (addressesFeature != null)
+        {
+            addressesFeature.Addresses.Clear();
+            addressesFeature.Addresses.Add($"http://localhost:{port}");
+        }
+
+        app.UseStaticFiles();
+        app.UseRouting();
+
+        app.UseEndpoints(endpoints =>
+        {
+            ConfigureApiEndpoints(endpoints);
+        });
+
+        if (isFirstRun)
+        {
+            RegisterBrowserLaunch(app, port);
+        }
+    }
+
+    private static void RegisterBrowserLaunch(IApplicationBuilder app, string port)
+    {
+        var lifetime = app.ApplicationServices.GetRequiredService<IHostApplicationLifetime>();
+        lifetime.ApplicationStarted.Register(() =>
+        {
+            var url = $"http://localhost:{port}/index.html";
+            Console.WriteLine($"Configuration UI available at: {url}");
+            Console.WriteLine();
+            OpenBrowser(url);
+        });
     }
 
     private static void ConfigureApp(HostBuilderContext context, IConfigurationBuilder builder)
@@ -222,6 +219,52 @@ internal static class Program
         return true;
     }
 
+    private static void ConfigureApiEndpoints(IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapGet("/api/config", HandleGetConfig);
+        endpoints.MapPost("/api/config", HandlePostConfig);
+        endpoints.MapGet("/api/status", HandleGetStatus);
+    }
+
+    private static IResult HandleGetConfig(IOptions<ServiceMonitorOptions> options)
+    {
+        return Results.Json(options.Value, JsonOptions);
+    }
+
+    private static async Task<IResult> HandlePostConfig(HttpContext ctx)
+    {
+        var newConfig = await ctx.Request.ReadFromJsonAsync<ServiceMonitorOptions>(JsonOptions, cancellationToken: ctx.RequestAborted).ConfigureAwait(false);
+
+        if (newConfig == null)
+        {
+            return Results.BadRequest("Invalid configuration data");
+        }
+
+        if (!ValidateConfiguration(newConfig, out var validationError))
+        {
+            return Results.BadRequest(validationError);
+        }
+
+        var json = JsonSerializer.Serialize(newConfig, IndentedJsonOptions);
+        await File.WriteAllTextAsync(UserConfigPath, json, ctx.RequestAborted).ConfigureAwait(false);
+
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine("✓ Configuration saved successfully!");
+        Console.ResetColor();
+        Console.WriteLine("Please restart ServiceMonitor for changes to take effect.");
+
+        return Results.Ok(new { message = "Configuration saved. Please restart the application." });
+    }
+
+    private static IResult HandleGetStatus()
+    {
+        return Results.Ok(new
+        {
+            configured = File.Exists(UserConfigPath),
+            version = "1.1.1",
+        });
+    }
+
     private static void OpenBrowser(string url)
     {
         try
@@ -232,11 +275,11 @@ internal static class Program
             }
             else if (OperatingSystem.IsLinux())
             {
-                Process.Start("xdg-open", url);
+                Process.Start("/usr/bin/xdg-open", url);
             }
-            else if (OperatingSystem.IsIOS())
+            else if (OperatingSystem.IsMacOS())
             {
-                Process.Start("open", url);
+                Process.Start("/usr/bin/open", url);
             }
         }
         catch (Exception ex)
