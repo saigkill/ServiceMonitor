@@ -8,21 +8,38 @@ using ServiceMonitor.Infrastructure.Configuration;
 
 namespace ServiceMonitor.Application.UseCases;
 
-public sealed class MonitorServicesUseCase(
-    IHealthMonitoringService healthMonitoring,
-    IAlertService alertService,
-    IOptions<ServiceMonitorOptions> options,
-    ILogger<MonitorServicesUseCase> logger,
-    IServiceHealthStateRepository stateRepository)
+public sealed class MonitorServicesUseCase
 {
-    public async Task<Result> ExecuteAsync(CancellationToken cancellationToken)
+    private readonly IHealthMonitoringService _healthMonitoring;
+    private readonly IAlertService _alertService;
+    private readonly IOptions<ServiceMonitorOptions> _options;
+    private readonly ILogger<MonitorServicesUseCase> _logger;
+    private readonly IServiceHealthStateRepository _stateRepository;
+
+    public MonitorServicesUseCase(
+        IHealthMonitoringService healthMonitoring,
+        IAlertService alertService,
+        IOptions<ServiceMonitorOptions> options,
+        ILogger<MonitorServicesUseCase> logger,
+        IServiceHealthStateRepository stateRepository)
     {
-        var urls = options.Value.Urls.Select(u => new Uri(u));
-        var resultsResult = await healthMonitoring.MonitorServicesAsync(urls, cancellationToken).ConfigureAwait(false);
+        _healthMonitoring = healthMonitoring;
+        _alertService = alertService;
+        _options = options;
+        _logger = logger;
+        _stateRepository = stateRepository;
+    }
+
+#pragma warning disable MA0038 // False positive with primary constructors
+    public async Task<Result> ExecuteAsync(CancellationToken cancellationToken)
+#pragma warning restore MA0038
+    {
+        var urls = _options.Value.Urls.Select(u => new Uri(u));
+        var resultsResult = await _healthMonitoring.MonitorServicesAsync(urls, cancellationToken).ConfigureAwait(false);
 
         if (resultsResult.IsFailure)
         {
-            logger.LogError("Health monitoring failed: {Error}", resultsResult.Error);
+            _logger.LogError("Health monitoring failed: {Error}", resultsResult.Error);
             return Result.Failure(resultsResult.Error);
         }
 
@@ -31,7 +48,7 @@ public sealed class MonitorServicesUseCase(
             var url = result.ServiceUrl;
             var isHealthy = result.IsHealthy;
 
-            var stateResult = await stateRepository.GetAsync(url, cancellationToken).ConfigureAwait(false);
+            var stateResult = await _stateRepository.GetAsync(url, cancellationToken).ConfigureAwait(false);
             var state = stateResult.HasValue
                 ? stateResult.Value
                 : new ServiceHealthState(url, isHealthy);
@@ -42,32 +59,32 @@ public sealed class MonitorServicesUseCase(
             {
                 if (!state.AlertSent)
                 {
-                    var alertResult = await alertService.SendAlertAsync(
+                    var alertResult = await _alertService.SendAlertAsync(
                         result.ServiceUrl,
                         result.ErrorMessage.GetValueOrDefault("Unknown error"),
-                        options.Value.EmailServer.To,
+                        _options.Value.EmailServer.To,
                         cancellationToken).ConfigureAwait(false);
 
                     if (alertResult.IsFailure)
                     {
-                        logger.LogError("Failed to send alert for {Url}: {Error}", result.ServiceUrl, alertResult.Error);
+                        _logger.LogError("Failed to send alert for {Url}: {Error}", result.ServiceUrl, alertResult.Error);
                         continue;
                     }
 
                     state.MarkAlertSent();
-                    logger.LogError("Down-Mail sent for {Url} with status: {Status}", result.ServiceUrl, result.StatusCode);
+                    _logger.LogError("Down-Mail sent for {Url} with status: {Status}", result.ServiceUrl, result.StatusCode);
                 }
 
-                logger.LogInformation(
+                _logger.LogInformation(
                     "Service {Url} returned status {Status}. Down-Mail already sent.",
                     result.ServiceUrl,
                     result.StatusCode);
             }
 
-            var saveResult = await stateRepository.SaveAsync(state, cancellationToken).ConfigureAwait(false);
+            var saveResult = await _stateRepository.SaveAsync(state, cancellationToken).ConfigureAwait(false);
             if (saveResult.IsFailure)
             {
-                logger.LogError("Failed to save state for {Url}: {Error}", url, saveResult.Error);
+                _logger.LogError("Failed to save state for {Url}: {Error}", url, saveResult.Error);
             }
         }
 
