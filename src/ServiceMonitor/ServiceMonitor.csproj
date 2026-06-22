@@ -4,12 +4,13 @@
     <OutputType>Exe</OutputType>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>1.1.1</Version>
+    <Version>1.1.2</Version>
     <Platforms>AnyCPU;x64</Platforms>
+    <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
     <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
     <PackageId>Saigkill.$(AssemblyName)</PackageId>
     <Title>ServiceMonitor is a lightweight, configuration‑driven monitoring tool designed for Windows and Linux‑based systems (including QNAP NAS).</Title>
@@ -18,8 +19,12 @@
 It periodically checks a list of URLs and sends SMTP notifications when services become unreachable or return error states. 
 The focus is on robustness, simplicity, and clean extensibility.</Description>
     <Copyright>(c) 2026 Sascha Manns</Copyright>
-    <PackageProjectUrl>https://dev.azure.com/saigkill/ServiceMonitor</PackageProjectUrl>
-    <RepositoryUrl>https://dev.azure.com/saigkill/_git/ServiceMonitor</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/saigkill/ServiceMonitor</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/saigkill/ServiceMonitor</RepositoryUrl>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
 
   <ItemGroup>

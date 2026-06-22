@@ -1,0 +1,68 @@
+name: .NET Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+  pages: write
+  id-token: write
+  checks: write
+  pull-requests: write
+
+env:
+  BUILD_CONFIGURATION: Release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Restore dependencies
+        run: dotnet restore src/ServiceMonitor.slnx
+      - name: Build
+        run: dotnet build src/ServiceMonitor.slnx --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore
+      - name: Test
+        run: dotnet test src/ServiceMonitor.slnx --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --verbosity normal --collect:"XPlat Code Coverage" --logger:"junit;LogFilePath=./TestResults/junit.xml" /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura --results-directory ./TestResults
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: ./TestResults/junit.xml
+      - name: ReportGenerator
+        uses: danielpalme/ReportGenerator-GitHub-Action@5
+        with:
+          reports: ./TestResults/**/coverage.cobertura.xml
+          targetdir: ./TestResults/CoverageReport
+          reporttypes: Html;MarkdownSummaryGithub
+      - name: Write Coverage to Job Summary
+        run: cat ./TestResults/CoverageReport/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./TestResults/CoverageReport
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4          
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./nupkgs/*.nupkg
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
