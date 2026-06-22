@@ -38,10 +38,6 @@ The focus is on robustness, simplicity, and clean extensibility.</Description>
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="GitVersion.MsBuild" Version="6.7.0">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
     <PackageReference Include="jcamp.FluentEmail.Core" Version="4.0.0" />
     <PackageReference Include="jcamp.FluentEmail.Smtp" Version="4.0.0" />
     <PackageReference Include="Meziantou.Analyzer" Version="3.0.56">
