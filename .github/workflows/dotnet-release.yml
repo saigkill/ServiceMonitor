@@ -15,6 +15,7 @@ permissions:
 
 env:
   BUILD_CONFIGURATION: Release
+  VERSION: 1.1.2
 
 jobs:
   release:
@@ -68,7 +69,7 @@ jobs:
         run: |
           dotnetpackager deb from-project \
             --project ./src/ServiceMonitor/ServiceMonitor.csproj \
-            --output ./ServiceMonitor_$(GitVersion_MajorMinorPatch)_amd64.deb \
+            --output ./ServiceMonitor_${{ env.VERSION }}_amd64.deb \
             --service \
             --service-type simple \
             --service-restart on-failure \
@@ -81,12 +82,12 @@ jobs:
             --service-type simple \
             --service-restart on-failure \
             --service-user servicemonitor \
-            --output ./ServiceMonitor-$(GitVersion_MajorMinorPatch).x86_64.rpm
+            --output ./ServiceMonitor-${{ env.VERSION }}.x86_64.rpm
       - name: Build AppImage
         run: |
           dotnetpackager appimage from-project \
             --project ./src/ServiceMonitor/ServiceMonitor.csproj \
-            --output ./ServiceMonitor-$(GitVersion_MajorMinorPatch).appimage
+            --output ./ServiceMonitor-${{ env.VERSION }}.appimage
       - name: Archive Release Linux
         uses: thedoctor0/zip-release@0.7.5
         with:
