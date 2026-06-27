@@ -6,8 +6,8 @@
     <Nullable>enable</Nullable>
     <Version>1.1.2</Version>
     <Platforms>AnyCPU;x64</Platforms>
-    <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 
   <PropertyGroup>
