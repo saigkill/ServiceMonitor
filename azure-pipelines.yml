@@ -1,0 +1,447 @@
+trigger:
+  branches:
+    include:
+      - develop
+      - master
+  tags:
+    include:
+      - v*
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  - name: BuildConfiguration
+    value: Release
+  - name: AppName
+    value: ServiceMonitor
+  - name: AzurePAT
+    value: $(AzurePAT)
+    isSecret: true
+  - name: GithubPAT
+    value: $(GithubPAT)
+    isSecret: true
+  - name: TFM
+    value: net9.0
+
+stages:
+
+# ---------------------------------------------------------
+#  STAGE: BUILD (Linux + Windows)
+# ---------------------------------------------------------
+- stage: Build
+  displayName: "Build Linux + Windows"
+  jobs:
+
+  # -------------------------
+  # Linux Build
+  # -------------------------
+  - job: Build_Linux
+    displayName: "Build Linux"
+    pool:
+      vmImage: ubuntu-latest
+
+    variables:
+      - name: RID
+        value: linux-x64
+      - name: ArtifactName
+        value:
+        allowOverride: true
+
+    steps:
+    - task: UseDotNet@2
+      displayName: "Install .NET SDK"
+      inputs:
+        packageType: sdk
+        version: 9.x
+
+    - task: gittools.gittools.setup-gitversion-task.gitversion-setup@4
+      displayName: 'gitversion-setup'
+      inputs:
+        versionSpec: 6.7.x
+
+    - task: gittools.gittools.execute-gitversion-task.gitversion-execute@4
+      displayName: 'gitversion-execute'
+
+    - powershell: |   
+                  $ArtifactName = "$(AppName)-$(GitVersion_SemVer)-Linux.zip"
+                  Write-Host "##vso[task.setvariable variable=ArtifactName]$ArtifactName"
+                  Write-Host "ArtifactName gesetzt auf: $ArtifactName"
+      displayName: 'Set Artifact Name'    
+
+    - task: DotNetCoreCLI@2
+      displayName: 'dotnet restore'
+      inputs:
+        azureSubscription: WorkloadIdentityFederation
+        command: restore
+        projects: '**/*.csproj'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'dotnet build'
+      inputs:
+        azureSubscription: WorkloadIdentityFederation
+        projects: '**/*.csproj'
+        arguments: '--configuration $(BuildConfiguration)'
+
+    - task: DotNetCoreCLI@2
+      displayName: "Publish Console App (Linux)"
+      inputs:
+        command: publish
+        publishWebProjects: false
+        projects: '**/*.csproj'
+        arguments: >
+          --configuration $(BuildConfiguration)
+          -r $(RID)
+          --self-contained true
+          --output $(Build.ArtifactStagingDirectory)/$(AppName)
+
+    - task: DotNetCoreCLI@2
+      displayName: "Run Unit Tests (Linux)"
+      inputs:
+        command: test
+        projects: '**/*[Tt]est*/*.csproj'
+        arguments: >
+          --collect:"XPlat Code Coverage"
+          --logger:junit
+          /p:CollectCoverage=true
+          /p:CoverletOutputFormat=cobertura
+        testRunTitle: 'dotnet test (Linux)'
+
+    - task: PublishTestResults@2
+      displayName: "Publish Test Results (Linux)"
+      inputs:
+        testResultsFormat: JUnit
+        testResultsFiles: '$(Agent.TempDirectory)/TestResults.xml'
+        testRunTitle: 'Run Testresults (Linux)'
+
+    - task: PublishCodeCoverageResults@2
+      displayName: "Publish Code Coverage Results (Linux)"
+      inputs:
+        summaryFileLocation: '$(Build.SourcesDirectory)/**/coverage.cobertura.xml'
+        pathToSources: '$(System.DefaultWorkingDirectory)/**/coverage'
+
+    - task: reportgenerator@5
+      displayName: "Generate Code Coverage Report (Linux)"
+      inputs:
+        reports: '$(Build.SourcesDirectory)/**/coverage.cobertura.xml'
+        targetdir: '$(Build.SourcesDirectory)/CodeCoverage'
+
+    - bash: |
+           cp $(Build.SourcesDirectory)/README.md $(Build.ArtifactStagingDirectory)/$(AppName)
+           cp $(Build.SourcesDirectory)/Assets/icon.png $(Build.ArtifactStagingDirectory)/$(AppName)
+           cp $(Build.SourcesDirectory)/Assets/icon.png $(Build.ArtifactStagingDirectory)/$(AppName)/$(AppName)   
+      displayName: 'Add Stuff to ZIP'
+
+
+    - task: ArchiveFiles@2
+      displayName: "Create ZIP (Linux)"
+      inputs:
+        rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/$(AppName)'
+        includeRootFolder: false
+        archiveType: zip
+        archiveFile: '$(Build.ArtifactStagingDirectory)/$(ArtifactName)'
+        replaceExistingArchive: true
+
+    - publish: '$(Build.ArtifactStagingDirectory)'
+      displayName: "Publish Artifact (Linux)"
+      artifact: linux-x64
+
+  # -------------------------
+  # Windows Build
+  # -------------------------
+  - job: Build_Windows
+    displayName: "Build Windows"
+    pool:
+      vmImage: windows-latest
+
+    variables:
+      - name: RID
+        value: win-x64
+      - name: ArtifactName
+        value:
+        allowOverride: true
+
+    steps:
+    - task: UseDotNet@2
+      displayName: "Install .NET SDK"
+      inputs:
+        packageType: sdk
+        version: 9.x
+
+    - task: gittools.gittools.setup-gitversion-task.gitversion-setup@4
+      displayName: 'gitversion-setup'
+      inputs:
+        versionSpec: 6.7.x
+
+    - task: gittools.gittools.execute-gitversion-task.gitversion-execute@4
+      displayName: 'gitversion-execute'
+
+    - powershell: |   
+                  $ArtifactName = "$(AppName)-$(GitVersion_SemVer)-Windows.zip"
+                  Write-Host "##vso[task.setvariable variable=ArtifactName]$ArtifactName"
+                  Write-Host "ArtifactName gesetzt auf: $ArtifactName"
+      displayName: 'Set Artifact Name'
+
+    - task: SonarSource.sonarcloud.14d9cde6-c1da-4d55-aa01-2965cd301255.SonarCloudPrepare@4
+      displayName: 'Prepare analysis on SonarQube Cloud'
+      inputs:
+       SonarQube: Sonarqube
+       organization: saigkill
+       projectKey: 'saigkill_ServiceMonitor'
+       extraProperties: |     
+                       sonar.exclusions=**CodeCoverage**
+
+    - task: PowerShell@2
+      displayName: "Restore & Build"
+      inputs:
+        targetType: inline
+        script: |
+          dotnet restore src/$(AppName).slnx
+          dotnet build --configuration $(BuildConfiguration) src/$(AppName).slnx
+
+    - task: DotNetCoreCLI@2
+      displayName: "Publish Console App (Windows)"
+      inputs:
+        command: publish
+        publishWebProjects: false
+        projects: '**/*.csproj'
+        arguments: >
+          --configuration $(BuildConfiguration)
+          -r $(RID)
+          --self-contained true
+          --output $(Build.ArtifactStagingDirectory)/$(AppName)
+
+    - task: CopyFiles@2
+      displayName: 'Prepare publish for Advanced Installer'
+      condition: eq(variables['Build.SourceBranch'], 'refs/heads/master')
+      inputs:
+       SourceFolder: '$(Build.ArtifactStagingDirectory)/$(AppName)'
+       TargetFolder: '$(Build.SourcesDirectory)/src/ServiceMonitor/bin/$(BuildConfiguration)/$(TFM)/publish/win-x64'
+
+    - task: caphyon.AdvancedInstaller-BuildTask.Caphyon.AdvancedInstaller.BuildTask.AdvancedInstaller@3
+      displayName: 'Build Advanced Installer package src/ServiceManager.Package/ServiceManager.Package.aip'
+      inputs:
+        aipPath: src/ServiceManager.Package/ServiceManager.Package.aip
+        aipExtraCommands: 'SetVersion $(GitVersion_MajorMinorPatch)'
+
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish Pipeline Artifact'
+      inputs:
+        targetPath: '$(Build.SourcesDirectory)/src\ServiceManager.Package\ServiceManager.Package-SetupFiles\ServiceManager.Package.msi'
+        artifact: 'msi-package'
+
+    - task: DotNetCoreCLI@2
+      displayName: "Run Unit Tests (Windows)"
+      inputs:
+        command: test
+        projects: '**/*[Tt]est*/*.csproj'
+        arguments: >
+          --collect:"XPlat Code Coverage"
+          --logger:junit
+          /p:CollectCoverage=true
+          /p:CoverletOutputFormat=cobertura
+        testRunTitle: 'dotnet test (Windows)'
+
+    - task: PublishTestResults@2
+      displayName: "Publish Test Results (Windows)"
+      inputs:
+        testResultsFormat: JUnit
+        testResultsFiles: '$(Agent.TempDirectory)/TestResults.xml'
+        testRunTitle: 'Run Testresults (Windows)'
+
+    - task: PublishCodeCoverageResults@2
+      displayName: 'Publish code coverage results'
+      inputs:
+       summaryFileLocation: '$(Build.SourcesDirectory)/**/coverage.cobertura.xml'
+       pathToSources: '$(System.DefaultWorkingDirectory)/**/coverage'
+
+    - task: Palmmedia.reportgenerator.reportgenerator-build-release-task.reportgenerator@5
+      displayName: ReportGenerator
+      inputs:
+        reports: '$(Agent.TempDirectory)/**/coverage.cobertura.xml'
+        targetdir: '$(Build.SourcesDirectory)/CodeCoverage'
+
+    - task: SonarSource.sonarcloud.ce096e50-6155-4de8-8800-4221aaeed4a1.SonarCloudAnalyze@4
+      displayName: 'Run Code Analysis'
+
+    - task: ArchiveFiles@2
+      displayName: "Create ZIP (Windows)"
+      inputs:
+        rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/$(AppName)'
+        includeRootFolder: false
+        archiveType: zip
+        archiveFile: '$(Build.ArtifactStagingDirectory)/$(ArtifactName)'
+        replaceExistingArchive: true
+
+    - task: SonarSource.sonarcloud.38b27399-a642-40af-bb7d-9971f69712e8.SonarCloudPublish@4
+      displayName: 'Publish Quality Gate Result'
+
+    - powershell: |
+                 # Fehler bei Befehlen sollen das Skript abbrechen
+                 $ErrorActionPreference = "Stop"
+   
+                 # Prüfen, ob das Verzeichnis existiert
+                 if (Test-Path $(AppName)) {
+                    Remove-Item -Recurse -Force $(AppName)
+                    Write-Host "Das Verzeichnis '$(AppName)' wurde gelöscht."
+                 } else {
+                    Write-Host "Das Verzeichnis '$(AppName)' existiert nicht."
+                 }
+   
+                 # Mirror-Clone von Azure DevOps
+                 git clone --mirror "https://saigkill:$(AzurePAT)@dev.azure.com/saigkill/$(AppName)/_git/$(AppName)" "./$(AppName)" --verbose
+   
+                 # In das Repo wechseln
+                 Set-Location $(AppName)
+   
+                 # GitHub-Remote hinzufügen
+                 git remote add github "https://saigkill:$(GithubPAT)@github.com/saigkill/$(AppName).git"
+   
+                 # Mirror-Push zu GitHub
+                 git push github --mirror
+      displayName: 'Mirror Github'
+
+    - bash: |
+           cp $(Build.SourcesDirectory)/README.md $(Build.ArtifactStagingDirectory)/$(AppName)
+           cp $(Build.SourcesDirectory)/Assets/icon.png $(Build.ArtifactStagingDirectory)/$(AppName)
+           cp $(Build.SourcesDirectory)/Assets/icon.png $(Build.ArtifactStagingDirectory)/$(AppName)/$(AppName)   
+      displayName: 'Add Stuff to ZIP'
+
+    - task: ArchiveFiles@2
+      displayName: 'Archive $(Build.ArtifactStagingDirectory)/$(AppName)'
+      inputs:
+        rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/$(AppName)'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/$(AppName)-$(GitVersion_SemVer)-Windows.zip'
+
+    - publish: '$(Build.ArtifactStagingDirectory)'
+      displayName: "Publish Artifact (Windows)"
+      artifact: win-x64
+
+# ============================================================
+# STAGE: PACKAGING (Linux only)
+# ============================================================
+- stage: Package
+  displayName: "Package Stage"
+  dependsOn: Build
+  condition: and(
+    succeeded(),
+    eq(variables['Build.SourceBranch'], 'refs/heads/master')
+   )
+  jobs:
+  - job: PackageLinux
+    displayName: "Build DEB + RPM"
+    pool:
+      vmImage: ubuntu-latest
+
+    variables:
+      - name: RID
+        value: linux-x64      
+
+    steps:
+    - task: UseDotNet@2
+      displayName: "Install .NET SDK"
+      inputs:
+        packageType: sdk
+        version: 10.x
+
+    - task: gittools.gittools.setup-gitversion-task.gitversion-setup@4
+      displayName: 'gitversion-setup'
+      inputs:
+        versionSpec: 6.7.x
+
+    - task: gittools.gittools.execute-gitversion-task.gitversion-execute@4
+      displayName: 'gitversion-execute'
+
+    - bash: 'dotnet tool install --global DotnetPackaging.Tool'
+      displayName: 'Install Packaging Tool'
+
+    - bash: |
+           dotnetpackager deb from-project \
+             --project ./src/$(AppName)/$(AppName).csproj \
+             --output ./$(AppName)_$(GitVersion_MajorMinorPatch)_amd64.deb \
+             --service \
+             --service-type simple \
+             --service-restart on-failure \
+             --service-user servicemonitor 
+      displayName: 'Build DEB package'
+
+    - bash: |
+           dotnetpackager rpm from-project \
+             --project ./src/$(AppName)/$(AppName).csproj \
+             --service \
+             --service-type simple \
+             --service-restart on-failure \
+             --service-user servicemonitor \
+             --output ./$(AppName)-$(GitVersion_MajorMinorPatch).x86_64.rpm
+      displayName: 'Build RPM package'
+
+    - bash: |
+           dotnetpackager appimage from-project \
+             --project ./src/$(AppName)/$(AppName).csproj \
+             --output ./$(AppName)-$(GitVersion_MajorMinorPatch).appimage
+      displayName: 'Build AppImage'
+
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish DEB Artifact'
+      inputs:
+        targetPath: '$(AppName)_$(GitVersion_MajorMinorPatch)_amd64.deb'
+        artifact: deb
+
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish RPM Artifact'
+      inputs:
+        targetPath: '$(AppName)-$(GitVersion_MajorMinorPatch).x86_64.rpm'
+        artifact: rpm
+
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish AppImage Artifact'
+      inputs:
+        targetPath: '$(AppName)-$(GitVersion_MajorMinorPatch).appimage'
+        artifact: appimage
+
+# ---------------------------------------------------------
+#  STAGE: RELEASE (nur bei Tags)
+# ---------------------------------------------------------
+- stage: Release
+  displayName: "Create GitHub Release"
+  dependsOn:
+    - Build
+    - Package
+  condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
+  jobs:
+  - job: ReleaseJob
+    displayName: "Create GitHub Release"
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - download: current
+      displayName: "Download Linux ZIP"
+      artifact: linux-x64
+
+    - download: current
+      displayName: "Download Windows ZIP"
+      artifact: win-x64
+
+    - download: current
+      displayName: "Download DEB"
+      artifact: deb
+
+    - download: current
+      displayName: "Download RPM"
+      artifact: rpm    
+
+    - task: GitHubRelease@1
+      displayName: "Create GitHub Release"
+      inputs:
+        gitHubConnection: github.com_saigkill
+        repositoryName: "saigkill/$(AppName)"
+        action: create
+        tagSource: gitTag
+        assets: |
+          $(Pipeline.Workspace)/linux-x64/*.zip
+          $(Pipeline.Workspace)/win-x64/*.zip
+          $(Pipeline.Workspace)/deb/*.deb
+          $(Pipeline.Workspace)/rpm/*.rpm       
+        title: "Release $(Build.SourceBranchName)"
+        isDraft: false
+        isPreRelease: false

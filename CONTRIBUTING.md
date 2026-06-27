@@ -2,17 +2,12 @@
 
 ## HELPING OUT CODING
 
-* Help coding on: https://dev.azure.com/saigkill/ServiceMonitor
-* Just ask for a invite to the repository on Azure DevOps. Mail [me](mailto:himself@saschamanns.de).
+* Help coding on: https://github.com/saigkill/ServiceMonitor
 
 ## IDEAS
 
 * Add ideas on: https://github.com/saigkill/ServiceMonitor/issues
 * I'm using Azure DevOps also to manage my open tasks. If you find a nice Task, and want to work with him, just post it there.
-
-## COOL HACKS via Bugreport
-
-* Open a bugreport on https://github.com/saigkill/ServiceMonitor/issues
 
 ## COOL HACKS via Pullrequest
 
@@ -21,13 +16,7 @@
 * Make your changes
 * Commit your changes
 * Push your changes to your fork
-* Create a pull request from your fork to the `develop` branch (https://dev.azure.com/saigkill/_git/ServiceMonitor/pullrequestcreate)
-
-## STRUCTURE
-
-The development happens on: https://dev.azure.com/saigkill/ServiceMonitor
-On Github we have a mirror of the repository: https://github.com/saigkill/ServiceMonitor
-You can use Github for Issues. For Pullrequests please use Azure DevOps.
+* Create a pull request from your fork to the `develop` branch
 
 ### BRANCHES
 
@@ -38,7 +27,3 @@ Contains the latest stable Release.
 #### `develop` BRANCH
 
 The master branch is the working directory. All new features and bugfixes should be commited to this branch. This branch is merged into the master branch when a new release is made.
-
-#### PULL REQUESTS
-
-Please base all Pullrequests off the `develop` branch.

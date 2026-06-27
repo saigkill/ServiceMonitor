@@ -8,23 +8,17 @@ It periodically checks a list of URLs and sends SMTP notifications when services
 The focus is on robustness, simplicity, and clean extensibility.
 
 | W                           | W                                                                                                                                                                                                                        |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Code                        | https://dev.azure.com/saigkill/ServiceMonitor                                                                                                                                                                            |
+| --------------------------- |--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Continuous Integration Prod | [![Build status](https://dev.azure.com/saigkill/ServiceMonitor/_apis/build/status/ServiceMonitor-Prod)](https://dev.azure.com/saigkill/ServiceMonitor/_build/latest?definitionId=94)                                     |
 | Continuous Integration Dev  | [![Build status](https://dev.azure.com/saigkill/ServiceMonitor/_apis/build/status/ServiceMonitor-Dev)](https://dev.azure.com/saigkill/ServiceMonitor/_build/latest?definitionId=93)                                      |
-| Code Coverage               | [![Coverage](https://img.shields.io/azure-devops/coverage/saigkill/ServiceMonitor/89)](https://dev.azure.com/saigkill/ServiceMonitor/_build/latest?definitionId=89)                                                      |
-| Static Code Analysis        | [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=saigkill_ServiceMonitor&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=saigkill_ServiceMonitor)                        |
 | Bugreports                  | [![GitHub issues](https://img.shields.io/github/issues/saigkill/ServiceMonitor)](https://github.com/saigkill/ServiceMonitor/issues)                                                                                      |
 | Downloads all               | ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/saigkill/ServiceMonitor/total)                                                                                                    |
-| Language                    | ![Framework](https://img.shields.io/badge/.NET-9%2B-blue?logo=csharp)                                                                                                                                                    |
 | OS                          | ![Windows](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D6?logo=windows) ![Linux](https://img.shields.io/badge/Linux-DEB-0078D6?logo=linux) ![Linux](https://img.shields.io/badge/Linux-RPM-0078D6?logo=linux) |
-| License                     | ![License](https://img.shields.io/badge/License-MIT-green)                                                                                                                                                               |
-| Status                      | ![Status](https://img.shields.io/badge/Status-Active-success)                                                                                                                                                            |
-| Maintained                  | ![Maintained](https://img.shields.io/badge/Maintained-Yes-brightgreen)                                                                                                                                                   |
+| License                     | ![License](https://img.shields.io/badge/License-GPL3-green)                                                                                                                                                              |
 | Blog                        | [![Blog](https://img.shields.io/badge/Blog-Saigkill-blue)](https://saschamanns.de)                                                                                                                                       |     
 
 File a bug report [on Github](https://github.com/saigkill/ServiceMonitor/issues).
-The documentation can be found in the [docs](https://moongladesm.blob.core.windows.net/docs/_ServiceMonitor/) directory.
+The documentation can be found in the [docs](https://writebook.saschamanns.de/5/service-manager) directory.
 
 ## Features
 

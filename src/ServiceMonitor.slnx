@@ -14,7 +14,7 @@
     <Platform Solution="Debug|x64" Project="x64" />
     <Platform Solution="DefaultBuild|x64" Project="x64" />
   </Project>
-  <Project Path="ServiceManager.Package/ServiceManager.Package.aiproj" Type="840c416c-b8f3-42bc-b0dd-f6bb14c9f8cb" Id="32035416-438e-4645-a747-8a70a0e0257c">
+  <Project Path="ServiceMonitor.Package/ServiceMonitor.Package.aiproj" Type="840c416c-b8f3-42bc-b0dd-f6bb14c9f8cb" Id="32035416-438e-4645-a747-8a70a0e0257c">
     <BuildType Project="DefaultBuild" />
     <Platform Project="?" />
   </Project>
