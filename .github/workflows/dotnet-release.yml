@@ -56,11 +56,55 @@ jobs:
           path: ./TestResults/CoverageReport
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4          
+        uses: actions/deploy-pages@v4
+      - name: Publish Linux
+        run: dotnet publish src/ServiceMonitor/ServiceMonitor.csproj --configuration ${{ env.BUILD_CONFIGURATION }} --runtime linux-x64 --self-contained true --output ./publish/linux-x64
+      - name: Publish Windows
+        run: dotnet publish src/ServiceMonitor/ServiceMonitor.csproj --configuration ${{ env.BUILD_CONFIGURATION }} --runtime win-x64 --self-contained true --output ./publish/win-x64
+      - name: Install dotnetpackager
+        run: |
+          dotnet tool install --global DotnetPackaging.Tool
+      - name: Build DEB
+        run: |
+          dotnetpackager deb from-project \
+            --project ./src/ServiceMonitor/ServiceMonitor.csproj \
+            --output ./ServiceMonitor_$(GitVersion_MajorMinorPatch)_amd64.deb \
+            --service \
+            --service-type simple \
+            --service-restart on-failure \
+            --service-user servicemonitor
+      - name: Build RPM
+        run: |
+          dotnetpackager rpm from-project \
+            --project ./src/ServiceMonitor/ServiceMonitor.csproj \
+            --service \
+            --service-type simple \
+            --service-restart on-failure \
+            --service-user servicemonitor \
+            --output ./ServiceMonitor-$(GitVersion_MajorMinorPatch).x86_64.rpm
+      - name: Build AppImage
+        run: |
+          dotnetpackager appimage from-project \
+            --project ./src/ServiceMonitor/ServiceMonitor.csproj \
+            --output ./ServiceMonitor-$(GitVersion_MajorMinorPatch).appimage
+      - name: Archive Release Linux
+        uses: thedoctor0/zip-release@0.7.5
+        with:
+          type: 'zip'
+          filename: 'servicemonitor-linux.zip'
+          path: ./publish/linux-x64
+          exclusions: '*.git*'
+      - name: Archive Release Windows
+        uses: thedoctor0/zip-release@0.7.5
+        with:
+          type: 'zip'
+          filename: 'servicemonitor-windows.zip'
+          path: ./publish/win-x64
+          exclusions: '*.git*'
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ./nupkgs/*.nupkg
+          files: ./*.zip, ./*.deb, ./*.rpm, ./*.appimage
           generate_release_notes: true
           draft: false
           prerelease: false
